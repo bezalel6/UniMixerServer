@@ -121,6 +121,7 @@ namespace UniMixerServer
             {
                 Console.WriteLine("UniMixer Server starting...");
                 Console.WriteLine($"Device ID: {Environment.MachineName}");
+                Console.WriteLine("Communication: Serial only (MQTT disabled)");
                 Console.WriteLine("Press Ctrl+C to stop the service");
 
                 var host = hostBuilder.Build();
