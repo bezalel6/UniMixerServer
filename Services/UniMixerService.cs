@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -189,7 +190,7 @@ namespace UniMixerServer.Services
             try
             {
                 var sessions = await _audioManager.GetAllAudioSessionsAsync();
-                
+
                 // Check if sessions have changed
                 if (HasSessionsChanged(sessions))
                 {
@@ -234,15 +235,15 @@ namespace UniMixerServer.Services
                 {
                     _logger.LogDebug("Session: {Session}", session.ToString());
                 }
-                
+
                 // Filter out invalid sessions
-                var validSessions = sessions.Where(s => 
+                var validSessions = sessions.Where(s =>
                     s.ProcessId > 0 && !string.IsNullOrWhiteSpace(s.ProcessName)
                 ).ToList();
 
                 if (validSessions.Count != sessions.Count)
                 {
-                    _logger.LogWarning("Filtered out {FilteredCount} invalid sessions", 
+                    _logger.LogWarning("Filtered out {FilteredCount} invalid sessions",
                         sessions.Count - validSessions.Count);
                 }
 
@@ -268,7 +269,7 @@ namespace UniMixerServer.Services
 
                 await Task.WhenAll(broadcastTasks);
 
-                _logger.LogDebug("Status sent to {HandlerCount} handlers, {SessionCount} sessions", 
+                _logger.LogDebug("Status sent to {HandlerCount} handlers, {SessionCount} sessions",
                     connectedHandlers.Count, validSessions.Count);
             }
             catch (Exception ex)
@@ -281,32 +282,26 @@ namespace UniMixerServer.Services
         {
             try
             {
-                _logger.LogInformation("Processing command {CommandType} from {Source}", 
+                _logger.LogInformation("Processing command {CommandType} from {Source}",
                     e.Command.CommandType, e.Source);
 
                 var result = await ProcessCommandAsync(e.Command);
 
-                // Send result back through the source handler
-                if (sender is ICommunicationHandler handler)
+                // Broadcast updated state instead of sending response
+                if (result.Success)
                 {
-                    await handler.SendCommandResultAsync(result);
+                    // await BroadcastStatusAsync();
+
+                }
+                else
+                {
+                    _logger.LogWarning("Command {CommandType} failed: {Message}",
+                        e.Command.CommandType, result.Message);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing command");
-                
-                var errorResult = new CommandResult
-                {
-                    Success = false,
-                    Message = $"Error processing command: {ex.Message}",
-                    RequestId = e.Command.RequestId
-                };
-
-                if (sender is ICommunicationHandler handler)
-                {
-                    await handler.SendCommandResultAsync(errorResult);
-                }
             }
         }
 
@@ -323,24 +318,49 @@ namespace UniMixerServer.Services
                 switch (command.CommandType)
                 {
                     case AudioCommandType.SetVolume:
-                        result.Success = await _audioManager.SetProcessVolumeAsync(command.ProcessId, command.Volume);
-                        result.Message = result.Success 
-                            ? $"Volume set to {command.Volume:P0} for process {command.ProcessId}"
-                            : $"Failed to set volume for process {command.ProcessId}";
+                        if (string.IsNullOrWhiteSpace(command.ProcessName))
+                        {
+                            result.Message = "Process name is required for SetVolume command";
+                            break;
+                        }
+
+                        var processes = Process.GetProcessesByName(command.ProcessName);
+                        if (processes.Length > 0)
+                        {
+                            result.Success = await _audioManager.SetProcessVolumeAsync(processes[0].Id, command.Volume);
+                            result.Message = result.Success
+                            ? $"Volume set to {command.Volume:P0} for process {command.ProcessName}"
+                            : $"Failed to set volume for process {command.ProcessName}";
+                        }
+                        else
+                        {
+                            result.Message = $"Failed to set volume for process {command.ProcessName}";
+                        }
+
                         break;
 
                     case AudioCommandType.Mute:
-                        result.Success = await _audioManager.MuteProcessAsync(command.ProcessId, true);
-                        result.Message = result.Success 
-                            ? $"Process {command.ProcessId} muted"
-                            : $"Failed to mute process {command.ProcessId}";
+                        if (string.IsNullOrWhiteSpace(command.ProcessName))
+                        {
+                            result.Message = "Process name is required for Mute command";
+                            break;
+                        }
+                        result.Success = await _audioManager.MuteProcessByNameAsync(command.ProcessName, true);
+                        result.Message = result.Success
+                            ? $"Process {command.ProcessName} muted"
+                            : $"Failed to mute process {command.ProcessName}";
                         break;
 
                     case AudioCommandType.Unmute:
-                        result.Success = await _audioManager.MuteProcessAsync(command.ProcessId, false);
-                        result.Message = result.Success 
-                            ? $"Process {command.ProcessId} unmuted"
-                            : $"Failed to unmute process {command.ProcessId}";
+                        if (string.IsNullOrWhiteSpace(command.ProcessName))
+                        {
+                            result.Message = "Process name is required for Unmute command";
+                            break;
+                        }
+                        result.Success = await _audioManager.MuteProcessByNameAsync(command.ProcessName, false);
+                        result.Message = result.Success
+                            ? $"Process {command.ProcessName} unmuted"
+                            : $"Failed to unmute process {command.ProcessName}";
                         break;
 
                     case AudioCommandType.GetStatus:
@@ -383,4 +403,4 @@ namespace UniMixerServer.Services
             _lastKnownSessions = e.Sessions;
         }
     }
-} 
+}

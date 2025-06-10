@@ -21,12 +21,28 @@ namespace UniMixerServer.Core
         Task<bool> SetProcessVolumeAsync(int processId, float volume);
 
         /// <summary>
+        /// Sets the volume for a specific process by name
+        /// </summary>
+        /// <param name="processName">Process name to control</param>
+        /// <param name="volume">Volume level between 0.0 and 1.0</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> SetProcessVolumeByNameAsync(string processName, float volume);
+
+        /// <summary>
         /// Mutes or unmutes a specific process
         /// </summary>
         /// <param name="processId">Process ID to control</param>
         /// <param name="mute">True to mute, false to unmute</param>
         /// <returns>True if successful, false otherwise</returns>
         Task<bool> MuteProcessAsync(int processId, bool mute);
+
+        /// <summary>
+        /// Mutes or unmutes a specific process by name
+        /// </summary>
+        /// <param name="processName">Process name to control</param>
+        /// <param name="mute">True to mute, false to unmute</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> MuteProcessByNameAsync(string processName, bool mute);
 
         /// <summary>
         /// Gets the current volume for a specific process
@@ -36,11 +52,25 @@ namespace UniMixerServer.Core
         Task<float?> GetProcessVolumeAsync(int processId);
 
         /// <summary>
+        /// Gets the current volume for a specific process by name
+        /// </summary>
+        /// <param name="processName">Process name to query</param>
+        /// <returns>Volume level between 0.0 and 1.0, or null if not found</returns>
+        Task<float?> GetProcessVolumeByNameAsync(string processName);
+
+        /// <summary>
         /// Gets the current mute state for a specific process
         /// </summary>
         /// <param name="processId">Process ID to query</param>
         /// <returns>True if muted, false if not muted, null if not found</returns>
         Task<bool?> GetProcessMuteStateAsync(int processId);
+
+        /// <summary>
+        /// Gets the current mute state for a specific process by name
+        /// </summary>
+        /// <param name="processName">Process name to query</param>
+        /// <returns>True if muted, false if not muted, null if not found</returns>
+        Task<bool?> GetProcessMuteStateByNameAsync(string processName);
 
         /// <summary>
         /// Event fired when audio sessions change

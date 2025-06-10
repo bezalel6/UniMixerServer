@@ -72,7 +72,7 @@ namespace UniMixerServer.Communication
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to start Serial handler");
-                
+
                 // Notify connection status change
                 ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
                 {
@@ -151,7 +151,7 @@ namespace UniMixerServer.Communication
                         ["isMuted"] = session.IsMuted,
                         ["state"] = session.State ?? string.Empty
                     };
-                    
+
                     sessionsList.Add(sessionDict);
                 }
 
@@ -160,16 +160,15 @@ namespace UniMixerServer.Communication
                     ["sessions"] = sessionsList
                 };
 
-                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions 
-                { 
+                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions
+                {
                     // WriteIndented = false,
                     // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
-                var counter = 0;
                 var message = $"{json}\n";
-                
+
                 // Concise logging - only essential info
-                _logger.LogDebug("Sending status: {SessionCount} sessions, {MessageLength} chars", 
+                _logger.LogDebug("Sending status: {SessionCount} sessions, {MessageLength} chars",
                     sessionsList.Count, message.Length);
                 _logger.LogDebug(json);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
@@ -190,13 +189,13 @@ namespace UniMixerServer.Communication
 
             try
             {
-                var json = JsonSerializer.Serialize(result, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                var json = JsonSerializer.Serialize(result, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
                 var message = $"{json}\n";
-                
+
                 _logger.LogDebug("Sending command result: {MessageLength} chars", message.Length);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
             }
@@ -222,7 +221,7 @@ namespace UniMixerServer.Communication
                         // Process complete lines
                         var content = buffer.ToString();
                         var lines = content.Split('\n');
-                        
+
                         // Process all complete lines (all but the last one)
                         for (int i = 0; i < lines.Length - 1; i++)
                         {
@@ -231,7 +230,7 @@ namespace UniMixerServer.Communication
                             {
                                 // _logger.LogDebug("Processing message: {Length} chars", line.Length);
                                 _logger.LogDebug(line);
-                                // await ProcessSerialMessage(line);
+                                await ProcessSerialMessage(line);
                             }
                         }
 
@@ -249,7 +248,7 @@ namespace UniMixerServer.Communication
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error reading from serial port");
-                    
+
                     if (_config.EnableAutoReconnect)
                     {
                         await Task.Delay(_config.ReconnectDelayMs, cancellationToken);
@@ -291,7 +290,8 @@ namespace UniMixerServer.Communication
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
+                _logger.LogInformation(message);
+                // _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
             }
 
             await Task.CompletedTask;
@@ -395,4 +395,4 @@ namespace UniMixerServer.Communication
             }
         }
     }
-} 
+}
