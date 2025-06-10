@@ -230,6 +230,10 @@ namespace UniMixerServer.Services
             try
             {
                 var sessions = await _audioManager.GetAllAudioSessionsAsync();
+                foreach (var session in sessions)
+                {
+                    _logger.LogDebug("Session: {Session}", session.ToString());
+                }
                 
                 // Filter out invalid sessions
                 var validSessions = sessions.Where(s => 

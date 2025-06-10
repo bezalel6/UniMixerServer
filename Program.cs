@@ -18,6 +18,13 @@ namespace UniMixerServer
     {
         static async Task Main(string[] args)
         {
+            // Check if we should run the audio manager test
+            if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase))
+            {
+                await AudioManagerTester.RunTest(args);
+                return;
+            }
+
             // Load .env file for credentials
             EnvLoader.Load();
             
