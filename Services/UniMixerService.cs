@@ -289,7 +289,8 @@ namespace UniMixerServer.Services
                 DataFlow = ParseDataFlow(_config.Audio.DataFlow),
                 DeviceRole = ParseDeviceRole(_config.Audio.DeviceRole),
                 StateFilter = UniMixerServer.Core.AudioSessionStateFilter.All,
-                VerboseLogging = _config.Audio.EnableDetailedLogging
+                VerboseLogging = _config.Audio.EnableDetailedLogging,
+                ProcessNameFilters = _config.AllowedProcesses.ToArray()
             };
         }
 
@@ -361,18 +362,10 @@ namespace UniMixerServer.Services
                             break;
                         }
 
-                        var processes = Process.GetProcessesByName(command.ProcessName);
-                        if (processes.Length > 0)
-                        {
-                            result.Success = await _audioManager.SetProcessVolumeAsync(processes[0].Id, command.Volume);
-                            result.Message = result.Success
+                        result.Success = await _audioManager.SetProcessVolumeByNameAsync(command.ProcessName, command.Volume);
+                        result.Message = result.Success
                             ? $"Volume set to {command.Volume:P0} for process {command.ProcessName}"
-                            : $"Failed to set volume for process {command.ProcessName}";
-                        }
-                        else
-                        {
-                            result.Message = $"Failed to set volume for process {command.ProcessName}";
-                        }
+                            : $"Failed to set volume for process {command.ProcessName} (no active audio session found)";
 
                         break;
 

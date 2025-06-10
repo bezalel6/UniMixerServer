@@ -72,8 +72,9 @@ namespace UniMixerServer.UI
         // UI State with change tracking
         private List<AudioSession> _currentSessions = new();
         private Dictionary<string, Panel> _sessionCards = new(); // Track cards by session key
-        private bool _isInitialized = false;
+        private volatile bool _isInitialized = false;
         private volatile bool _isRefreshing = false;
+        private volatile bool _isDisposing = false;
         private DateTime _lastUpdate = DateTime.MinValue;
 
         // Modern UI Components
@@ -91,42 +92,60 @@ namespace UniMixerServer.UI
         private ComboBox _deviceFilter;
 
         // Modern Color Scheme
-        private static readonly Color PrimaryBg = Color.FromArgb(13, 17, 23);      // GitHub dark
-        private static readonly Color SecondaryBg = Color.FromArgb(22, 27, 34);    // Elevated surface
-        private static readonly Color AccentBg = Color.FromArgb(33, 38, 45);       // Card background
-        private static readonly Color BorderColor = Color.FromArgb(48, 54, 61);    // Subtle borders
-        private static readonly Color TextPrimary = Color.FromArgb(230, 237, 243); // Primary text
-        private static readonly Color TextSecondary = Color.FromArgb(139, 148, 158); // Secondary text
-        private static readonly Color AccentBlue = Color.FromArgb(88, 166, 255);   // GitHub blue
-        private static readonly Color AccentGreen = Color.FromArgb(63, 185, 80);   // Success green
-        private static readonly Color AccentOrange = Color.FromArgb(255, 130, 67); // Warning orange
-        private static readonly Color AccentRed = Color.FromArgb(248, 81, 73);     // Error red
+        private static readonly Color PrimaryBg = Color.FromArgb(13, 17, 23);
+        private static readonly Color SecondaryBg = Color.FromArgb(22, 27, 34);
+        private static readonly Color AccentBg = Color.FromArgb(33, 38, 45);
+        private static readonly Color BorderColor = Color.FromArgb(48, 54, 61);
+        private static readonly Color TextPrimary = Color.FromArgb(230, 237, 243);
+        private static readonly Color TextSecondary = Color.FromArgb(139, 148, 158);
+        private static readonly Color AccentBlue = Color.FromArgb(88, 166, 255);
+        private static readonly Color AccentGreen = Color.FromArgb(63, 185, 80);
+        private static readonly Color AccentOrange = Color.FromArgb(255, 130, 67);
+        private static readonly Color AccentRed = Color.FromArgb(248, 81, 73);
 
         public ModernAudioMixerForm()
         {
-            // Setup UI update timer (reasonable frequency for smooth but not seizure-inducing updates)
-            _uiUpdateTimer = new System.Windows.Forms.Timer { Interval = 1000 }; // 1 second intervals
-            _uiUpdateTimer.Tick += OnUIUpdateTick;
-            _uiUpdateTimer.Start();
-
+            // CRITICAL FIX: Initialize UI first, THEN start background tasks
             InitializeModernUI();
-            StartBackgroundInitialization();
+
+            // Setup UI update timer AFTER UI is created
+            _uiUpdateTimer = new System.Windows.Forms.Timer { Interval = 2000 }; // Increased to 2 seconds
+            _uiUpdateTimer.Tick += OnUIUpdateTick;
+
+            // CRITICAL FIX: Don't start background initialization in constructor
+            // Use Load event instead to ensure form is fully created
+            this.Load += OnFormLoad;
+        }
+
+        private void OnFormLoad(object sender, EventArgs e)
+        {
+            // Start background initialization AFTER form is loaded and visible
+            _uiUpdateTimer.Start();
+            StartBackgroundInitializationSafe();
         }
 
         private void InitializeModernUI()
         {
-            // Form setup
-            Text = "UniMixer Pro";
-            Size = new Size(1600, 1000);
-            MinimumSize = new Size(1200, 700);
-            StartPosition = FormStartPosition.CenterScreen;
-            BackColor = PrimaryBg;
-            ForeColor = TextPrimary;
-            FormBorderStyle = FormBorderStyle.Sizable;
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            try
+            {
+                // Form setup
+                Text = "UniMixer Pro";
+                Size = new Size(1600, 1000);
+                MinimumSize = new Size(1200, 700);
+                StartPosition = FormStartPosition.CenterScreen;
+                BackColor = PrimaryBg;
+                ForeColor = TextPrimary;
+                FormBorderStyle = FormBorderStyle.Sizable;
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
-            CreateModernLayout();
-            ApplyModernStyling();
+                CreateModernLayout();
+                ApplyModernStyling();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing UI: {ex.Message}");
+                // Don't throw - allow form to continue with basic setup
+            }
         }
 
         private void CreateModernLayout()
@@ -192,9 +211,10 @@ namespace UniMixerServer.UI
             var unmuteAllBtn = CreateQuickButton("🔊 Unmute All", AccentGreen, 100);
             var refreshBtn = CreateQuickButton("🔄 Refresh", AccentBlue, 80);
 
-            muteAllBtn.Click += async (s, e) => await BulkMuteOperation(true);
-            unmuteAllBtn.Click += async (s, e) => await BulkMuteOperation(false);
-            refreshBtn.Click += async (s, e) => await RefreshSessionsAsync();
+            // CRITICAL FIX: Use async void for event handlers with proper error handling
+            muteAllBtn.Click += async (s, e) => await SafeExecuteAsync(() => BulkMuteOperation(true));
+            unmuteAllBtn.Click += async (s, e) => await SafeExecuteAsync(() => BulkMuteOperation(false));
+            refreshBtn.Click += async (s, e) => await SafeExecuteAsync(() => RefreshSessionsAsync());
 
             quickActionsPanel.Controls.AddRange(new Control[] { muteAllBtn, unmuteAllBtn, refreshBtn });
 
@@ -212,7 +232,7 @@ namespace UniMixerServer.UI
             // Status indicators
             _statusLabel = new Label
             {
-                Text = "⚡ Initializing...",
+                Text = "⚡ Starting...",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = AccentOrange,
                 AutoSize = true,
@@ -221,7 +241,7 @@ namespace UniMixerServer.UI
 
             _sessionCountLabel = new Label
             {
-                Text = "0 sessions",
+                Text = "Initializing...",
                 Font = new Font("Segoe UI", 10F),
                 ForeColor = TextSecondary,
                 AutoSize = true,
@@ -301,6 +321,54 @@ namespace UniMixerServer.UI
             });
 
             Controls.Add(_mainPanel);
+        }
+
+        // CRITICAL FIX: Wrapper for async operations with proper error handling
+        private async Task SafeExecuteAsync(Func<Task> operation)
+        {
+            if (_isDisposing) return;
+
+            try
+            {
+                await operation();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Form is disposing, ignore
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in async operation: {ex.Message}");
+
+                // Update UI safely
+                if (!_isDisposing && !IsDisposed)
+                {
+                    try
+                    {
+                        if (InvokeRequired)
+                        {
+                            BeginInvoke(new Action(() => UpdateErrorStatus($"Error: {ex.Message}")));
+                        }
+                        else
+                        {
+                            UpdateErrorStatus($"Error: {ex.Message}");
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore invoke errors during shutdown
+                    }
+                }
+            }
+        }
+
+        private void UpdateErrorStatus(string message)
+        {
+            if (!_isDisposing && !IsDisposed && _statusLabel != null)
+            {
+                _statusLabel.Text = message;
+                _statusLabel.ForeColor = AccentRed;
+            }
         }
 
         private Button CreateQuickButton(string text, Color color, int width)
@@ -618,7 +686,7 @@ namespace UniMixerServer.UI
         {
             var exportBtn = CreateQuickButton("📤 Export", AccentBlue, 120);
             exportBtn.Location = new Point(0, 40);
-            exportBtn.Click += async (s, e) => await ExportSessionData();
+            exportBtn.Click += async (s, e) => await SafeExecuteAsync(() => ExportSessionData());
 
             var themeBtn = CreateQuickButton("🌙 Toggle Theme", BorderColor, 120);
             themeBtn.Location = new Point(0, 72);
@@ -629,26 +697,33 @@ namespace UniMixerServer.UI
         // Add the missing methods that are referenced but not implemented
         private void FilterSessionsRealTime(string searchText)
         {
-            if (string.IsNullOrEmpty(searchText))
-            {
-                // Show all sessions
-                foreach (var card in _sessionCards.Values)
-                {
-                    card.Visible = true;
-                }
-                return;
-            }
+            if (_isDisposing) return;
 
-            // Filter sessions based on search text
-            foreach (var kvp in _sessionCards)
+            try
             {
-                var session = _currentSessions.FirstOrDefault(s => GetSessionKey(s) == kvp.Key);
-                if (session != null)
+                if (string.IsNullOrEmpty(searchText))
                 {
-                    bool matches = session.ProcessName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                                 session.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-                    kvp.Value.Visible = matches;
+                    foreach (var card in _sessionCards.Values)
+                    {
+                        card.Visible = true;
+                    }
+                    return;
                 }
+
+                foreach (var kvp in _sessionCards)
+                {
+                    var session = _currentSessions.FirstOrDefault(s => GetSessionKey(s) == kvp.Key);
+                    if (session != null)
+                    {
+                        bool matches = session.ProcessName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                                     session.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                        kvp.Value.Visible = matches;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error filtering sessions: {ex.Message}");
             }
         }
 
@@ -749,84 +824,123 @@ namespace UniMixerServer.UI
             }
         }
 
-        private void StartBackgroundInitialization()
+        // CRITICAL FIX: Safe UI update method
+        private void SafeUpdateUI(Action updateAction)
         {
-            // Simplified initialization to prevent hangs
+            if (_isDisposing || IsDisposed) return;
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        if (!_isDisposing && !IsDisposed)
+                        {
+                            updateAction();
+                        }
+                    }));
+                }
+                else
+                {
+                    if (!_isDisposing && !IsDisposed)
+                    {
+                        updateAction();
+                    }
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Form is disposing, ignore
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating UI: {ex.Message}");
+            }
+        }
+
+        // CRITICAL FIX: Safe background initialization with proper error handling
+        private void StartBackgroundInitializationSafe()
+        {
             Task.Run(async () =>
             {
                 try
                 {
+                    // CRITICAL FIX: Add delay to ensure form is fully loaded
+                    await Task.Delay(1000, _cancellationTokenSource.Token);
+
+                    if (_isDisposing || _cancellationTokenSource.Token.IsCancellationRequested)
+                        return;
+
                     var logger = new DesktopLogger("AudioManager");
                     logger.LogInformation("Initializing AudioManager");
 
-                    _audioManager = new AudioManager(logger, enableDetailedLogging: false); // Disable verbose logging
+                    // CRITICAL FIX: Initialize with shorter timeout and error handling
+                    _audioManager = new AudioManager(logger, enableDetailedLogging: false);
 
-                    // Get initial sessions with aggressive timeout
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    var initialSessions = await _audioManager.GetAllAudioSessionsAsync().ConfigureAwait(false);
+                    // CRITICAL FIX: Very aggressive timeout for initial load
+                    using var initTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    using var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(
+                        _cancellationTokenSource.Token, initTimeout.Token);
+
+                    List<AudioSession> initialSessions = null;
+
+                    try
+                    {
+                        initialSessions = await _audioManager.GetAllAudioSessionsAsync();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        logger.LogWarning("Initial session load timed out, continuing with empty list");
+                        initialSessions = new List<AudioSession>();
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to get initial sessions, continuing with empty list");
+                        initialSessions = new List<AudioSession>();
+                    }
 
                     _currentSessions = initialSessions ?? new List<AudioSession>();
                     _isInitialized = true;
 
-                    // Update UI on main thread
-                    if (!IsDisposed && !_cancellationTokenSource.Token.IsCancellationRequested)
+                    // CRITICAL FIX: Safe UI update with proper checks
+                    SafeUpdateUI(() =>
                     {
-                        this.BeginInvoke(new Action(() =>
-                        {
-                            try
-                            {
-                                if (!IsDisposed)
-                                {
-                                    _statusLabel.Text = "🟢 Connected";
-                                    _statusLabel.ForeColor = AccentGreen;
-                                    _sessionCountLabel.Text = $"{_currentSessions.Count} sessions";
-                                    UpdateSessionCardsEfficiently();
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error updating initial UI: {ex.Message}");
-                            }
-                        }));
-                    }
+                        _statusLabel.Text = "🟢 Connected";
+                        _statusLabel.ForeColor = AccentGreen;
+                        _sessionCountLabel.Text = $"{_currentSessions.Count} sessions";
+                        UpdateSessionCardsEfficiently();
+                    });
 
                     logger.LogInformation("Desktop application initialized successfully");
 
-                    // Start background refresh loop with delay
-                    await Task.Delay(2000, _cancellationTokenSource.Token).ConfigureAwait(false);
-                    await BackgroundRefreshLoop().ConfigureAwait(false);
+                    // Start background refresh with longer delay
+                    await Task.Delay(3000, _cancellationTokenSource.Token);
+                    await BackgroundRefreshLoopSafe();
+                }
+                catch (OperationCanceledException)
+                {
+                    // Normal shutdown, ignore
                 }
                 catch (Exception ex)
                 {
                     var logger = new DesktopLogger("Initialization");
                     logger.LogError(ex, "Failed to initialize AudioManager");
 
-                    if (!IsDisposed && !_cancellationTokenSource.Token.IsCancellationRequested)
+                    SafeUpdateUI(() =>
                     {
-                        this.BeginInvoke(new Action(() =>
-                        {
-                            try
-                            {
-                                if (!IsDisposed)
-                                {
-                                    _statusLabel.Text = "❌ Failed to initialize";
-                                    _statusLabel.ForeColor = AccentRed;
-                                    _sessionCountLabel.Text = "0 sessions";
-                                }
-                            }
-                            catch (Exception uiEx)
-                            {
-                                Console.WriteLine($"Error updating error UI: {uiEx.Message}");
-                            }
-                        }));
-                    }
+                        _statusLabel.Text = "❌ Failed to initialize";
+                        _statusLabel.ForeColor = AccentRed;
+                        _sessionCountLabel.Text = "0 sessions";
+                    });
                 }
             }, _cancellationTokenSource.Token);
         }
 
-        private async Task BackgroundRefreshLoop()
+        // CRITICAL FIX: Safer background refresh loop
+        private async Task BackgroundRefreshLoopSafe()
         {
-            while (!_cancellationTokenSource.Token.IsCancellationRequested)
+            while (!_cancellationTokenSource.Token.IsCancellationRequested && !_isDisposing)
             {
                 try
                 {
@@ -835,15 +949,22 @@ namespace UniMixerServer.UI
                     {
                         _isRefreshing = true;
 
-                        // Use aggressive timeout for background operations
-                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(2)); // Shorter timeout
                         using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
                             _cancellationTokenSource.Token, timeoutCts.Token);
 
-                        var sessions = await _audioManager.GetAllAudioSessionsAsync().ConfigureAwait(false);
+                        List<AudioSession> sessions = null;
+                        try
+                        {
+                            sessions = await _audioManager.GetAllAudioSessionsAsync();
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Timeout or cancellation, skip this update
+                            sessions = null;
+                        }
 
-                        // Only update if sessions actually changed and we're not disposed
-                        if (sessions != null && SessionsHaveChanged(sessions) && !IsDisposed)
+                        if (sessions != null && SessionsHaveChanged(sessions) && !_isDisposing)
                         {
                             _currentSessions = sessions;
                             _lastUpdate = DateTime.Now;
@@ -852,8 +973,8 @@ namespace UniMixerServer.UI
                         _isRefreshing = false;
                     }
 
-                    // Refresh every 5 seconds (less aggressive to prevent issues)
-                    await Task.Delay(5000, _cancellationTokenSource.Token).ConfigureAwait(false);
+                    // CRITICAL FIX: Longer delay between refreshes to prevent overwhelming
+                    await Task.Delay(7000, _cancellationTokenSource.Token); // 7 second intervals
                 }
                 catch (OperationCanceledException)
                 {
@@ -865,10 +986,9 @@ namespace UniMixerServer.UI
                     logger.LogError(ex, "Error in background refresh");
                     _isRefreshing = false;
 
-                    // Wait longer on error to prevent spam
                     try
                     {
-                        await Task.Delay(10000, _cancellationTokenSource.Token).ConfigureAwait(false);
+                        await Task.Delay(15000, _cancellationTokenSource.Token); // Longer wait on error
                     }
                     catch (OperationCanceledException)
                     {
@@ -1499,6 +1619,7 @@ namespace UniMixerServer.UI
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            _isDisposing = true; // CRITICAL FIX: Set disposal flag to stop background operations
             _cancellationTokenSource.Cancel();
             _uiUpdateTimer?.Stop();
             _uiUpdateTimer?.Dispose();

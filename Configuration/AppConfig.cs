@@ -14,6 +14,12 @@ namespace UniMixerServer.Configuration
         public SerialConfig Serial { get; set; } = new SerialConfig();
         public LoggingConfig Logging { get; set; } = new LoggingConfig();
         public AudioConfig Audio { get; set; } = new AudioConfig();
+
+        /// <summary>
+        /// List of allowed process names or regex patterns. If empty, all processes are allowed.
+        /// Can contain exact process names (e.g., "spotify.exe") or regex patterns (e.g., ".*music.*")
+        /// </summary>
+        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music" };
     }
 
     public class AudioConfig
@@ -41,7 +47,7 @@ namespace UniMixerServer.Configuration
         /// <summary>
         /// Whether to enable detailed logging for audio operations
         /// </summary>
-        public bool EnableDetailedLogging { get; set; } = false;
+        public bool EnableDetailedLogging { get; set; } = true;
     }
 
     public class MqttConfig

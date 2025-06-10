@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Threading;
+using System.Text.RegularExpressions;
 
 #if WINDOWS
 using System.Runtime.Versioning;
@@ -36,6 +37,38 @@ namespace UniMixerServer.Core
         Expired = 2      // Only expired sessions
     }
 
+    /// <summary>
+    /// Configuration options for audio session discovery and filtering.
+    /// </summary>
+    /// <example>
+    /// Basic usage with exact process name matching:
+    /// <code>
+    /// var config = new AudioDiscoveryConfig
+    /// {
+    ///     ProcessNameFilters = new[] { "chrome", "firefox", "spotify" },
+    ///     UseRegexFiltering = false
+    /// };
+    /// var sessions = await audioManager.GetAllAudioSessionsAsync(config);
+    /// </code>
+    /// 
+    /// Advanced usage with regex patterns:
+    /// <code>
+    /// var config = new AudioDiscoveryConfig
+    /// {
+    ///     ProcessNameFilters = new[] { "^chrome.*", ".*player.*", "discord" },
+    ///     UseRegexFiltering = true,
+    ///     StateFilter = AudioSessionStateFilter.Active,
+    ///     VerboseLogging = true
+    /// };
+    /// var sessions = await audioManager.GetAllAudioSessionsAsync(config);
+    /// </code>
+    /// 
+    /// Common regex patterns:
+    /// - "^chrome.*" - Matches processes starting with "chrome" (chrome, chrome.exe, chromium, etc.)
+    /// - ".*player.*" - Matches processes containing "player" (vlcplayer, mediaplayer, etc.)
+    /// - "(?i)discord" - Case-insensitive match for "discord"
+    /// - "(spotify|apple music|itunes)" - Matches any of the specified music applications
+    /// </example>
     public class AudioDiscoveryConfig
     {
         public AudioDataFlow DataFlow { get; set; } = AudioDataFlow.Render;
@@ -44,6 +77,22 @@ namespace UniMixerServer.Core
         public bool IncludeAllDevices { get; set; } = false;  // If true, scans ALL audio devices, not just default
         public bool IncludeCaptureDevices { get; set; } = false; // If true, also includes input devices
         public bool VerboseLogging { get; set; } = false;
+
+        /// <summary>
+        /// Optional array of process name filters. Can contain either exact string matches or regular expressions.
+        /// If null or empty, all sessions are included. If specified, only sessions with process names that match
+        /// at least one filter will be included.
+        /// Examples:
+        /// - ["chrome", "firefox"] - exact matches for Chrome and Firefox
+        /// - ["^chrome.*", ".*player.*"] - regex patterns for processes starting with "chrome" or containing "player"
+        /// </summary>
+        public string[]? ProcessNameFilters { get; set; } = null;
+
+        /// <summary>
+        /// If true, treats ProcessNameFilters as regular expressions. If false, treats them as exact string matches.
+        /// Default is false for backward compatibility and performance.
+        /// </summary>
+        public bool UseRegexFiltering { get; set; } = false;
     }
 
 #if WINDOWS
@@ -422,6 +471,79 @@ namespace UniMixerServer.Core
             }
         }
 
+        /// <summary>
+        /// Checks if a process name matches any of the configured filters in the discovery config.
+        /// </summary>
+        /// <param name="processName">The process name to check</param>
+        /// <param name="config">The discovery configuration containing the filters</param>
+        /// <returns>True if the process name matches the filters or no filters are specified, false otherwise</returns>
+        /// <remarks>
+        /// This method supports both exact string matches and regular expression patterns based on the
+        /// UseRegexFiltering configuration option. If no filters are specified, all process names match.
+        /// Filtering is case-insensitive for both exact matches and regex patterns.
+        /// </remarks>
+        private bool MatchesProcessNameFilter(string processName, AudioDiscoveryConfig config)
+        {
+            // If no filters are specified, include all sessions
+            if (config.ProcessNameFilters == null || config.ProcessNameFilters.Length == 0)
+            {
+                LogDetailed("No process name filters specified - including process: {ProcessName}", processName);
+                return true;
+            }
+
+            try
+            {
+                if (config.UseRegexFiltering)
+                {
+                    // Use regular expression matching
+                    foreach (var filter in config.ProcessNameFilters)
+                    {
+                        if (string.IsNullOrWhiteSpace(filter)) continue;
+
+                        try
+                        {
+                            // Create regex with IgnoreCase option for case-insensitive matching
+                            var regex = new Regex(filter, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                            if (regex.IsMatch(processName))
+                            {
+                                LogDetailed("Process '{ProcessName}' matched regex filter: '{Filter}'", processName, filter);
+                                return true;
+                            }
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            // Log invalid regex patterns but continue with other filters
+                            LogDetailedWarning("Invalid regex pattern '{Filter}': {Error}", filter, ex.Message);
+                        }
+                    }
+                    LogDetailed("Process '{ProcessName}' did not match any regex filters", processName);
+                }
+                else
+                {
+                    // Use contains matching (case-insensitive)
+                    foreach (var filter in config.ProcessNameFilters)
+                    {
+                        if (string.IsNullOrWhiteSpace(filter)) continue;
+
+                        if (processName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                        {
+                            LogDetailed("Process '{ProcessName}' matched contains filter: '{Filter}'", processName, filter);
+                            return true;
+                        }
+                    }
+                    LogDetailed("Process '{ProcessName}' did not match any exact filters", processName);
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // If filtering fails, log the error and include the session to be safe
+                LogDetailedError(ex, "Error checking process name filter for '{ProcessName}' - including session", processName);
+                return true;
+            }
+        }
+
         #endregion
 
         #region IAudioManager Implementation
@@ -442,6 +564,43 @@ namespace UniMixerServer.Core
             return await GetAllAudioSessionsAsync(defaultConfig);
         }
 
+        /// <summary>
+        /// Retrieves all audio sessions from the system with optional filtering and configuration.
+        /// </summary>
+        /// <param name="config">Optional configuration for session discovery and filtering. If null, uses default settings.</param>
+        /// <returns>A list of AudioSession objects representing active audio sessions that match the specified criteria.</returns>
+        /// <example>
+        /// Example 1 - Filter by exact process names:
+        /// <code>
+        /// var config = new AudioDiscoveryConfig
+        /// {
+        ///     ProcessNameFilters = new[] { "chrome", "firefox", "spotify" },
+        ///     UseRegexFiltering = false
+        /// };
+        /// var sessions = await audioManager.GetAllAudioSessionsAsync(config);
+        /// </code>
+        /// 
+        /// Example 2 - Filter using regex patterns:
+        /// <code>
+        /// var config = new AudioDiscoveryConfig
+        /// {
+        ///     ProcessNameFilters = new[] { "^chrome.*", ".*player.*" },
+        ///     UseRegexFiltering = true,
+        ///     StateFilter = AudioSessionStateFilter.Active
+        /// };
+        /// var sessions = await audioManager.GetAllAudioSessionsAsync(config);
+        /// </code>
+        /// 
+        /// Example 3 - Get all music/media players:
+        /// <code>
+        /// var config = new AudioDiscoveryConfig
+        /// {
+        ///     ProcessNameFilters = new[] { "(spotify|vlc|winamp|foobar|itunes|apple music)" },
+        ///     UseRegexFiltering = true
+        /// };
+        /// var sessions = await audioManager.GetAllAudioSessionsAsync(config);
+        /// </code>
+        /// </example>
         public async Task<List<AudioSession>> GetAllAudioSessionsAsync(AudioDiscoveryConfig? config = null)
         {
             LogDetailed("Starting GetAllAudioSessionsAsync with custom config");
@@ -567,6 +726,12 @@ namespace UniMixerServer.Core
                 {
                     LogDetailed("Acquired lock for SetProcessVolumeByNameAsync");
                     var sessions = GetAllAudioSessionsInternal();
+                    LogDetailed("Found {SessionCount} total sessions", sessions.Count);
+                    foreach (var t in sessions)
+                    {
+                        LogDetailed("Session - ProcessId: {ProcessId}, ProcessName: {ProcessName}, Volume: {Volume:P2}, Muted: {Muted}, State: {State}",
+                            t.ProcessId, t.ProcessName, t.Volume, t.IsMuted, t.SessionState);
+                    }
                     var session = sessions.FirstOrDefault(s => string.Equals(s.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
 
                     if (session == null)
@@ -647,8 +812,9 @@ namespace UniMixerServer.Core
         private List<AudioSession> GetAllAudioSessionsInternal(AudioDiscoveryConfig? config = null)
         {
             config ??= new AudioDiscoveryConfig();
-            LogDetailed("Starting GetAllAudioSessionsInternal with config: DataFlow={DataFlow}, Role={DeviceRole}, StateFilter={StateFilter}, IncludeAllDevices={IncludeAllDevices}",
-                config.DataFlow, config.DeviceRole, config.StateFilter, config.IncludeAllDevices);
+            LogDetailed("Starting GetAllAudioSessionsInternal with config: DataFlow={DataFlow}, Role={DeviceRole}, StateFilter={StateFilter}, IncludeAllDevices={IncludeAllDevices}, ProcessNameFilters={ProcessNameFilters}, UseRegexFiltering={UseRegexFiltering}",
+                config.DataFlow, config.DeviceRole, config.StateFilter, config.IncludeAllDevices,
+                config.ProcessNameFilters != null ? string.Join(", ", config.ProcessNameFilters) : "None", config.UseRegexFiltering);
 
             var sessions = new List<AudioSession>();
             IntPtr deviceEnumerator = IntPtr.Zero;
@@ -1242,6 +1408,14 @@ namespace UniMixerServer.Core
                             // This converts the numeric process ID to a human-readable process name
                             string processName = GetProcessName(processId);
                             LogDetailed("Session {SessionIndex} ProcessName: '{ProcessName}' on device: {DeviceName}", i, processName, deviceName);
+
+                            // Apply process name filter if specified in the configuration
+                            // This allows filtering sessions by process name using exact matches or regex patterns
+                            if (!MatchesProcessNameFilter(processName, config))
+                            {
+                                LogDetailed("Skipping session {SessionIndex} due to process name filter: ProcessName='{ProcessName}' did not match filters", i, processName);
+                                continue;
+                            }
 
                             // Create an AudioSession object with all the collected information
                             var audioSession = new AudioSession
