@@ -15,6 +15,16 @@ namespace UniMixerServer
             Console.WriteLine("This program will test the AudioManager with detailed logging enabled.");
             Console.WriteLine();
 
+            // Check if user wants to see visualization demo first
+            if (args.Length > 1 && args[1].Equals("--demo", StringComparison.OrdinalIgnoreCase))
+            {
+                AudioSessionVisualizer.ShowVisualizationDemo();
+                Console.WriteLine();
+                Console.WriteLine("Press any key to continue with real audio session testing...");
+                Console.ReadKey();
+                Console.WriteLine();
+            }
+
             // Create service collection and configure logging
             var services = new ServiceCollection();
             
@@ -172,6 +182,22 @@ namespace UniMixerServer
                 {
                     Console.WriteLine("ℹ️  No additional sessions found when scanning all devices.");
                 }
+
+                Console.WriteLine();
+                Console.WriteLine("=== VISUAL REPRESENTATIONS ===");
+                Console.WriteLine();
+
+                // ASCII Tree Visualization
+                AudioSessionVisualizer.DisplayDeviceTree(allDevicesSessions, "All Devices - Audio Sessions Tree");
+
+                // Volume Chart
+                AudioSessionVisualizer.DisplayVolumeChart(allDevicesSessions, "Volume Levels by Process");
+
+                // Statistics Overview
+                AudioSessionVisualizer.DisplayStatistics(sessions, allDevicesSessions, captureSessions);
+
+                // Export HTML Report
+                AudioSessionVisualizer.ExportToHtml(sessions, allDevicesSessions, captureSessions);
 
                 Console.WriteLine();
                 Console.WriteLine("=== TESTING VOLUME CONTROL ===");

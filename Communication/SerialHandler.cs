@@ -165,7 +165,7 @@ namespace UniMixerServer.Communication
                     // WriteIndented = false,
                     // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
-
+                var counter = 0;
                 var message = $"{json}\n";
                 
                 // Concise logging - only essential info

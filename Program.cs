@@ -25,6 +25,13 @@ namespace UniMixerServer
                 return;
             }
 
+            // Check if we should run the desktop app
+            if (args.Length > 0 && args[0].Equals("--desktop", StringComparison.OrdinalIgnoreCase))
+            {
+                UniMixerServer.UI.DesktopAppLauncher.Launch();
+                return;
+            }
+
             // Load .env file for credentials
             EnvLoader.Load();
             
