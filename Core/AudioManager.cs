@@ -726,12 +726,6 @@ namespace UniMixerServer.Core
                 {
                     LogDetailed("Acquired lock for SetProcessVolumeByNameAsync");
                     var sessions = GetAllAudioSessionsInternal();
-                    LogDetailed("Found {SessionCount} total sessions", sessions.Count);
-                    foreach (var t in sessions)
-                    {
-                        LogDetailed("Session - ProcessId: {ProcessId}, ProcessName: {ProcessName}, Volume: {Volume:P2}, Muted: {Muted}, State: {State}",
-                            t.ProcessId, t.ProcessName, t.Volume, t.IsMuted, t.SessionState);
-                    }
                     var session = sessions.FirstOrDefault(s => string.Equals(s.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
 
                     if (session == null)

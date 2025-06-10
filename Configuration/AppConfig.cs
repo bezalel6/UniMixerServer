@@ -47,7 +47,7 @@ namespace UniMixerServer.Configuration
         /// <summary>
         /// Whether to enable detailed logging for audio operations
         /// </summary>
-        public bool EnableDetailedLogging { get; set; } = true;
+        public bool EnableDetailedLogging { get; set; } = false;
     }
 
     public class MqttConfig

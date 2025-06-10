@@ -323,19 +323,7 @@ namespace UniMixerServer.Services
                 _logger.LogInformation("Processing command {CommandType} from {Source}",
                     e.Command.CommandType, e.Source);
 
-                var result = await ProcessCommandAsync(e.Command);
-
-                // Broadcast updated state instead of sending response
-                if (result.Success)
-                {
-                    // await BroadcastStatusAsync();
-
-                }
-                else
-                {
-                    _logger.LogWarning("Command {CommandType} failed: {Message}",
-                        e.Command.CommandType, result.Message);
-                }
+                await ProcessCommandAsync(e.Command);
             }
             catch (Exception ex)
             {
@@ -343,14 +331,8 @@ namespace UniMixerServer.Services
             }
         }
 
-        private async Task<CommandResult> ProcessCommandAsync(AudioCommand command)
+        private async Task ProcessCommandAsync(AudioCommand command)
         {
-            var result = new CommandResult
-            {
-                RequestId = command.RequestId,
-                Success = false
-            };
-
             try
             {
                 switch (command.CommandType)
@@ -358,69 +340,80 @@ namespace UniMixerServer.Services
                     case AudioCommandType.SetVolume:
                         if (string.IsNullOrWhiteSpace(command.ProcessName))
                         {
-                            result.Message = "Process name is required for SetVolume command";
+                            _logger.LogWarning("Process name is required for SetVolume command");
                             break;
                         }
 
-                        result.Success = await _audioManager.SetProcessVolumeByNameAsync(command.ProcessName, command.Volume);
-                        result.Message = result.Success
-                            ? $"Volume set to {command.Volume:P0} for process {command.ProcessName}"
-                            : $"Failed to set volume for process {command.ProcessName} (no active audio session found)";
-
+                        var volumeSuccess = await _audioManager.SetProcessVolumeByNameAsync(command.ProcessName, command.Volume);
+                        if (volumeSuccess)
+                        {
+                            _logger.LogInformation("Volume set to {Volume:P0} for process {ProcessName}",
+                                command.Volume, command.ProcessName);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to set volume for process {ProcessName} (no active audio session found)",
+                                command.ProcessName);
+                        }
                         break;
 
                     case AudioCommandType.Mute:
                         if (string.IsNullOrWhiteSpace(command.ProcessName))
                         {
-                            result.Message = "Process name is required for Mute command";
+                            _logger.LogWarning("Process name is required for Mute command");
                             break;
                         }
-                        result.Success = await _audioManager.MuteProcessByNameAsync(command.ProcessName, true);
-                        result.Message = result.Success
-                            ? $"Process {command.ProcessName} muted"
-                            : $"Failed to mute process {command.ProcessName}";
+
+                        var muteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, true);
+                        if (muteSuccess)
+                        {
+                            _logger.LogInformation("Process {ProcessName} muted", command.ProcessName);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to mute process {ProcessName}", command.ProcessName);
+                        }
                         break;
 
                     case AudioCommandType.Unmute:
                         if (string.IsNullOrWhiteSpace(command.ProcessName))
                         {
-                            result.Message = "Process name is required for Unmute command";
+                            _logger.LogWarning("Process name is required for Unmute command");
                             break;
                         }
-                        result.Success = await _audioManager.MuteProcessByNameAsync(command.ProcessName, false);
-                        result.Message = result.Success
-                            ? $"Process {command.ProcessName} unmuted"
-                            : $"Failed to unmute process {command.ProcessName}";
+
+                        var unmuteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, false);
+                        if (unmuteSuccess)
+                        {
+                            _logger.LogInformation("Process {ProcessName} unmuted", command.ProcessName);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to unmute process {ProcessName}", command.ProcessName);
+                        }
                         break;
 
                     case AudioCommandType.GetStatus:
                         var config = CreateAudioDiscoveryConfig();
                         var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
-                        result.Success = true;
-                        result.Message = $"Retrieved {sessions.Count} audio sessions";
-                        result.Data = sessions;
+                        _logger.LogInformation("Retrieved {SessionCount} audio sessions", sessions.Count);
                         break;
 
                     case AudioCommandType.GetAllSessions:
                         var allSessionsConfig = CreateAudioDiscoveryConfig();
                         var allSessions = await _audioManager.GetAllAudioSessionsAsync(allSessionsConfig);
-                        result.Success = true;
-                        result.Message = $"Retrieved {allSessions.Count} audio sessions";
-                        result.Data = allSessions;
+                        _logger.LogInformation("Retrieved {SessionCount} audio sessions", allSessions.Count);
                         break;
 
                     default:
-                        result.Message = $"Unknown command type: {command.CommandType}";
+                        _logger.LogWarning("Unknown command type: {CommandType}", command.CommandType);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                result.Message = $"Error executing command: {ex.Message}";
                 _logger.LogError(ex, "Error executing command {CommandType}", command.CommandType);
             }
-
-            return result;
         }
 
         private void OnConnectionStatusChanged(object? sender, ConnectionStatusChangedEventArgs e)

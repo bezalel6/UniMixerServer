@@ -179,32 +179,6 @@ namespace UniMixerServer.Communication
             }
         }
 
-        public async Task SendCommandResultAsync(CommandResult result, CancellationToken cancellationToken = default)
-        {
-            if (!IsConnected)
-            {
-                _logger.LogWarning("Cannot send command result - Serial port not connected");
-                return;
-            }
-
-            try
-            {
-                var json = JsonSerializer.Serialize(result, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
-
-                var message = $"{json}\n";
-
-                _logger.LogDebug("Sending command result: {MessageLength} chars", message.Length);
-                await Task.Run(() => _serialPort!.Write(message), cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending command result via serial port");
-            }
-        }
-
         private async Task ReadSerialDataAsync(CancellationToken cancellationToken)
         {
             var buffer = new StringBuilder();

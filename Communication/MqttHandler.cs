@@ -114,9 +114,9 @@ namespace UniMixerServer.Communication
 
             try
             {
-                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
                 var message = new MqttApplicationMessageBuilder()
@@ -135,37 +135,6 @@ namespace UniMixerServer.Communication
             }
         }
 
-        public async Task SendCommandResultAsync(CommandResult result, CancellationToken cancellationToken = default)
-        {
-            if (_mqttClient == null || !IsConnected)
-            {
-                _logger.LogWarning("Cannot send command result - MQTT client not connected");
-                return;
-            }
-
-            try
-            {
-                var json = JsonSerializer.Serialize(result, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
-                });
-
-                var message = new MqttApplicationMessageBuilder()
-                    .WithTopic(_config.Topics.ResponseTopic)
-                    .WithPayload(json)
-                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
-                    .WithRetainFlag(false)
-                    .Build();
-
-                await _mqttClient.EnqueueAsync(message);
-                _logger.LogDebug("Command result sent to MQTT topic: {Topic}", _config.Topics.ResponseTopic);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending command result via MQTT");
-            }
-        }
-
         private async Task OnConnectedAsync(MqttClientConnectedEventArgs args)
         {
             _logger.LogInformation("MQTT client connected to broker {Host}:{Port}", _config.BrokerHost, _config.BrokerPort);
@@ -174,7 +143,7 @@ namespace UniMixerServer.Communication
             await _mqttClient!.SubscribeAsync(_config.Topics.CommandTopic);
             await _mqttClient.SubscribeAsync(_config.Topics.ControlTopic);
 
-            _logger.LogInformation("Subscribed to MQTT topics: {CommandTopic}, {ControlTopic}", 
+            _logger.LogInformation("Subscribed to MQTT topics: {CommandTopic}, {ControlTopic}",
                 _config.Topics.CommandTopic, _config.Topics.ControlTopic);
 
             // Notify connection status change
@@ -257,4 +226,4 @@ namespace UniMixerServer.Communication
             }
         }
     }
-} 
+}

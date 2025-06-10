@@ -40,14 +40,6 @@ namespace UniMixerServer.Communication
         Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Sends a command result through this communication channel
-        /// </summary>
-        /// <param name="result">Command result to send</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Task representing the send operation</returns>
-        Task SendCommandResultAsync(CommandResult result, CancellationToken cancellationToken = default);
-
-        /// <summary>
         /// Event fired when a command is received
         /// </summary>
         event EventHandler<CommandReceivedEventArgs>? CommandReceived;
@@ -72,4 +64,4 @@ namespace UniMixerServer.Communication
         public string? Message { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
-} 
+}

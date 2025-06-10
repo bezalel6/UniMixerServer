@@ -23,15 +23,6 @@ namespace UniMixerServer.Models
         GetAllSessions
     }
 
-    public class CommandResult
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string RequestId { get; set; } = string.Empty;
-        public object? Data { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    }
-
     public class StatusMessage
     {
         public string DeviceId { get; set; } = Environment.MachineName;
@@ -49,4 +40,4 @@ namespace UniMixerServer.Models
         public bool IsMuted { get; set; }
         public string State { get; set; } = string.Empty;
     }
-} 
+}
