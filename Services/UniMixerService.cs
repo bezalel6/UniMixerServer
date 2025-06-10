@@ -231,17 +231,32 @@ namespace UniMixerServer.Services
             {
                 var sessions = await _audioManager.GetAllAudioSessionsAsync();
                 
+                // Filter out invalid sessions and log them
+                var validSessions = sessions.Where(s => 
+                {
+                    if (s.ProcessId <= 0 || string.IsNullOrWhiteSpace(s.ProcessName))
+                    {
+                        _logger.LogWarning("Filtering out invalid session: PID={ProcessId}, Name='{ProcessName}'", 
+                            s.ProcessId, s.ProcessName);
+                        return false;
+                    }
+                    return true;
+                }).ToList();
+
+                _logger.LogDebug("Filtered sessions: {ValidCount}/{TotalCount} sessions are valid", 
+                    validSessions.Count, sessions.Count);
+
                 var statusMessage = new StatusMessage
                 {
                     DeviceId = _config.DeviceId,
                     Timestamp = DateTime.UtcNow,
-                    ActiveSessionCount = sessions.Count,
-                    Sessions = sessions.Select(s => new SessionStatus
+                    ActiveSessionCount = validSessions.Count,
+                    Sessions = validSessions.Select(s => new SessionStatus
                     {
                         ProcessId = s.ProcessId,
-                        ProcessName = s.ProcessName,
-                        DisplayName = s.DisplayName,
-                        Volume = s.Volume,
+                        ProcessName = s.ProcessName ?? string.Empty,
+                        DisplayName = s.DisplayName ?? string.Empty,
+                        Volume = Math.Max(0.0f, Math.Min(1.0f, s.Volume)),
                         IsMuted = s.IsMuted,
                         State = ((AudioSessionState)s.SessionState).ToString()
                     }).ToList()

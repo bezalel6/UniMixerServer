@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Ports;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -12,6 +15,9 @@ namespace UniMixerServer.Communication
 {
     public class SerialHandler : ICommunicationHandler, IDisposable
     {
+        private const string MESSAGE_START_DELIMITER = "<MSG>";
+        private const string MESSAGE_END_DELIMITER = "</MSG>";
+        
         private readonly ILogger<SerialHandler> _logger;
         private readonly SerialConfig _config;
         private SerialPort? _serialPort;
@@ -136,15 +142,48 @@ namespace UniMixerServer.Communication
 
             try
             {
-                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions 
+                _logger.LogDebug("Creating status message for {SessionCount} sessions", status.Sessions.Count);
+                
+                // Create a clean JSON structure that matches what the ESP32 expects
+                var sessionsList = new List<object>();
+                int sessionIndex = 0;
+                foreach (var session in status.Sessions.Take(5))
+                {
+                    _logger.LogDebug("Processing session {Index}: PID={ProcessId}, Name='{ProcessName}', Volume={Volume}, Muted={IsMuted}, State='{State}'", 
+                        sessionIndex, session.ProcessId, session.ProcessName, session.Volume, session.IsMuted, session.State);
+                    
+                    var sessionDict = new Dictionary<string, object>
+                    {
+                        ["processName"] = session.ProcessName ?? string.Empty,
+                        ["processId"] = session.ProcessId,
+                        ["volume"] = session.Volume,
+                        ["isMuted"] = session.IsMuted,
+                        ["state"] = session.State ?? string.Empty
+                    };
+                    
+                    sessionsList.Add(sessionDict);
+                    sessionIndex++;
+                }
+
+                var statusData = new Dictionary<string, object>
+                {
+                    ["sessions"] = sessionsList
+                };
+
+                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions 
                 { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                    WriteIndented = false,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
 
-                var message = $"STATUS:{json}\n";
+                _logger.LogDebug("Serialized JSON ({Length} chars): {Json}", json.Length, json);
+
+                var message = $"{MESSAGE_START_DELIMITER}{json}{MESSAGE_END_DELIMITER}\n";
                 
+                _logger.LogDebug("Final message ({Length} chars): {Message}", message.Length, message.TrimEnd());
+                _logger.LogDebug("Message bytes (first 100): {Bytes}", string.Join(" ", System.Text.Encoding.UTF8.GetBytes(message).Take(100).Select(b => $"{b:X2}")));
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
-                _logger.LogDebug("Status message sent via serial port");
+                _logger.LogDebug("Status message sent via serial port successfully");
             }
             catch (Exception ex)
             {
@@ -167,8 +206,9 @@ namespace UniMixerServer.Communication
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
                 });
 
-                var message = $"RESULT:{json}\n";
+                var message = $"{MESSAGE_START_DELIMITER}{json}{MESSAGE_END_DELIMITER}\n";
                 
+                _logger.LogDebug("Sending command result via serial port: {Message}", message.TrimEnd());
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
                 _logger.LogDebug("Command result sent via serial port");
             }
@@ -189,28 +229,24 @@ namespace UniMixerServer.Communication
                     if (_serialPort!.BytesToRead > 0)
                     {
                         var data = _serialPort.ReadExisting();
+                        _logger.LogDebug("Received raw serial data: {Data}", data);
                         buffer.Append(data);
 
-                        // Process complete messages (ended with newline)
+                        // Process complete messages (wrapped with delimiters)
                         var content = buffer.ToString();
-                        var lines = content.Split('\n');
-
-                        // Process all complete lines
-                        for (int i = 0; i < lines.Length - 1; i++)
+                        
+                        // Extract messages between delimiters
+                        var messages = ExtractWrappedMessages(content);
+                        
+                        // Process all complete messages
+                        foreach (var message in messages.CompleteMessages)
                         {
-                            var line = lines[i].Trim();
-                            if (!string.IsNullOrEmpty(line))
-                            {
-                                await ProcessSerialMessage(line);
-                            }
+                            await ProcessSerialMessage(message);
                         }
 
-                        // Keep the last incomplete line in buffer
+                        // Keep the remaining content in buffer
                         buffer.Clear();
-                        if (lines.Length > 0)
-                        {
-                            buffer.Append(lines[lines.Length - 1]);
-                        }
+                        buffer.Append(messages.RemainingContent);
                     }
 
                     await Task.Delay(10, cancellationToken); // Small delay to prevent busy waiting
@@ -236,38 +272,64 @@ namespace UniMixerServer.Communication
             }
         }
 
+        private (List<string> CompleteMessages, string RemainingContent) ExtractWrappedMessages(string content)
+        {
+            var completeMessages = new List<string>();
+            var remainingContent = content;
+
+            while (true)
+            {
+                var startIndex = remainingContent.IndexOf(MESSAGE_START_DELIMITER);
+                if (startIndex == -1)
+                    break;
+
+                var endIndex = remainingContent.IndexOf(MESSAGE_END_DELIMITER, startIndex + MESSAGE_START_DELIMITER.Length);
+                if (endIndex == -1)
+                    break;
+
+                // Extract the message content between delimiters
+                var messageStart = startIndex + MESSAGE_START_DELIMITER.Length;
+                var messageLength = endIndex - messageStart;
+                var message = remainingContent.Substring(messageStart, messageLength);
+                
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    completeMessages.Add(message);
+                    _logger.LogDebug("Extracted wrapped message: {Message}", message);
+                }
+
+                // Remove the processed message from remaining content
+                remainingContent = remainingContent.Substring(endIndex + MESSAGE_END_DELIMITER.Length);
+            }
+
+            return (completeMessages, remainingContent);
+        }
+
         private async Task ProcessSerialMessage(string message)
         {
             try
             {
                 _logger.LogDebug("Received serial message: {Message}", message);
 
-                // Parse command prefix
-                if (message.StartsWith("CMD:", StringComparison.OrdinalIgnoreCase))
+                // All messages from ESP32 are commands - no prefix needed
+                var command = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions
                 {
-                    var json = message.Substring(4);
-                    var command = JsonSerializer.Deserialize<AudioCommand>(json, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter() }
+                });
 
-                    if (command != null)
+                if (command != null)
+                {
+                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs
                     {
-                        CommandReceived?.Invoke(this, new CommandReceivedEventArgs
-                        {
-                            Command = command,
-                            Source = "Serial",
-                            Timestamp = DateTime.UtcNow
-                        });
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to parse serial command from message: {Message}", message);
-                    }
+                        Command = command,
+                        Source = "Serial",
+                        Timestamp = DateTime.UtcNow
+                    });
                 }
                 else
                 {
-                    _logger.LogDebug("Ignoring non-command serial message: {Message}", message);
+                    _logger.LogWarning("Failed to parse serial command from message: {Message}", message);
                 }
             }
             catch (Exception ex)

@@ -170,7 +170,24 @@ namespace UniMixerServer.Core
                 if (processId == 0) return "System Sounds";
 
                 var process = Process.GetProcessById(processId);
-                return process.ProcessName;
+                var processName = process.ProcessName;
+                
+                // Sanitize process name - remove any invalid characters
+                if (string.IsNullOrWhiteSpace(processName))
+                {
+                    return $"Unknown Process (PID: {processId})";
+                }
+                
+                // Remove any control characters or invalid JSON characters
+                processName = new string(processName.Where(c => !char.IsControl(c) && c != '"' && c != '\\').ToArray());
+                
+                // Limit length to prevent buffer issues
+                if (processName.Length > 50)
+                {
+                    processName = processName.Substring(0, 50);
+                }
+                
+                return string.IsNullOrWhiteSpace(processName) ? $"Process_{processId}" : processName;
             }
             catch
             {

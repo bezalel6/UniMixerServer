@@ -93,7 +93,7 @@ namespace UniMixerServer
                     var appConfig = context.Configuration.Get<AppConfig>() ?? new AppConfig();
                     
                     configuration
-                        .MinimumLevel.Is(Serilog.Events.LogEventLevel.Information)
+                        .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
                         .Enrich.FromLogContext()
                         .Enrich.WithProperty("Application", "UniMixerServer")
                         .Enrich.WithProperty("MachineName", Environment.MachineName);
