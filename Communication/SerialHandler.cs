@@ -15,9 +15,6 @@ namespace UniMixerServer.Communication
 {
     public class SerialHandler : ICommunicationHandler, IDisposable
     {
-        private const string MESSAGE_START_DELIMITER = "<MSG>";
-        private const string MESSAGE_END_DELIMITER = "</MSG>";
-        
         private readonly ILogger<SerialHandler> _logger;
         private readonly SerialConfig _config;
         private SerialPort? _serialPort;
@@ -142,16 +139,10 @@ namespace UniMixerServer.Communication
 
             try
             {
-                _logger.LogDebug("Creating status message for {SessionCount} sessions", status.Sessions.Count);
-                
                 // Create a clean JSON structure that matches what the ESP32 expects
                 var sessionsList = new List<object>();
-                int sessionIndex = 0;
-                foreach (var session in status.Sessions.Take(5))
+                foreach (var session in status.Sessions.Take(2))
                 {
-                    _logger.LogDebug("Processing session {Index}: PID={ProcessId}, Name='{ProcessName}', Volume={Volume}, Muted={IsMuted}, State='{State}'", 
-                        sessionIndex, session.ProcessId, session.ProcessName, session.Volume, session.IsMuted, session.State);
-                    
                     var sessionDict = new Dictionary<string, object>
                     {
                         ["processName"] = session.ProcessName ?? string.Empty,
@@ -162,7 +153,6 @@ namespace UniMixerServer.Communication
                     };
                     
                     sessionsList.Add(sessionDict);
-                    sessionIndex++;
                 }
 
                 var statusData = new Dictionary<string, object>
@@ -176,14 +166,13 @@ namespace UniMixerServer.Communication
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
 
-                _logger.LogDebug("Serialized JSON ({Length} chars): {Json}", json.Length, json);
-
-                var message = $"{MESSAGE_START_DELIMITER}{json}{MESSAGE_END_DELIMITER}\n";
+                var message = $"{json}\n";
                 
-                _logger.LogDebug("Final message ({Length} chars): {Message}", message.Length, message.TrimEnd());
-                _logger.LogDebug("Message bytes (first 100): {Bytes}", string.Join(" ", System.Text.Encoding.UTF8.GetBytes(message).Take(100).Select(b => $"{b:X2}")));
+                // Concise logging - only essential info
+                _logger.LogDebug("Sending status: {SessionCount} sessions, {MessageLength} chars", 
+                    sessionsList.Count, message.Length);
+                
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
-                _logger.LogDebug("Status message sent via serial port successfully");
             }
             catch (Exception ex)
             {
@@ -206,11 +195,10 @@ namespace UniMixerServer.Communication
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
                 });
 
-                var message = $"{MESSAGE_START_DELIMITER}{json}{MESSAGE_END_DELIMITER}\n";
+                var message = $"{json}\n";
                 
-                _logger.LogDebug("Sending command result via serial port: {Message}", message.TrimEnd());
+                _logger.LogDebug("Sending command result: {MessageLength} chars", message.Length);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
-                _logger.LogDebug("Command result sent via serial port");
             }
             catch (Exception ex)
             {
@@ -229,24 +217,27 @@ namespace UniMixerServer.Communication
                     if (_serialPort!.BytesToRead > 0)
                     {
                         var data = _serialPort.ReadExisting();
-                        _logger.LogDebug("Received raw serial data: {Data}", data);
                         buffer.Append(data);
 
-                        // Process complete messages (wrapped with delimiters)
+                        // Process complete lines
                         var content = buffer.ToString();
+                        var lines = content.Split('\n');
                         
-                        // Extract messages between delimiters
-                        var messages = ExtractWrappedMessages(content);
-                        
-                        // Process all complete messages
-                        foreach (var message in messages.CompleteMessages)
+                        // Process all complete lines (all but the last one)
+                        for (int i = 0; i < lines.Length - 1; i++)
                         {
-                            await ProcessSerialMessage(message);
+                            var line = lines[i].Trim('\r', '\n');
+                            if (!string.IsNullOrWhiteSpace(line))
+                            {
+                                // _logger.LogDebug("Processing message: {Length} chars", line.Length);
+                                _logger.LogDebug(line);
+                                // await ProcessSerialMessage(line);
+                            }
                         }
 
-                        // Keep the remaining content in buffer
+                        // Keep the last incomplete line in buffer
                         buffer.Clear();
-                        buffer.Append(messages.RemainingContent);
+                        buffer.Append(lines[lines.Length - 1]);
                     }
 
                     await Task.Delay(10, cancellationToken); // Small delay to prevent busy waiting
@@ -272,45 +263,10 @@ namespace UniMixerServer.Communication
             }
         }
 
-        private (List<string> CompleteMessages, string RemainingContent) ExtractWrappedMessages(string content)
-        {
-            var completeMessages = new List<string>();
-            var remainingContent = content;
-
-            while (true)
-            {
-                var startIndex = remainingContent.IndexOf(MESSAGE_START_DELIMITER);
-                if (startIndex == -1)
-                    break;
-
-                var endIndex = remainingContent.IndexOf(MESSAGE_END_DELIMITER, startIndex + MESSAGE_START_DELIMITER.Length);
-                if (endIndex == -1)
-                    break;
-
-                // Extract the message content between delimiters
-                var messageStart = startIndex + MESSAGE_START_DELIMITER.Length;
-                var messageLength = endIndex - messageStart;
-                var message = remainingContent.Substring(messageStart, messageLength);
-                
-                if (!string.IsNullOrWhiteSpace(message))
-                {
-                    completeMessages.Add(message);
-                    _logger.LogDebug("Extracted wrapped message: {Message}", message);
-                }
-
-                // Remove the processed message from remaining content
-                remainingContent = remainingContent.Substring(endIndex + MESSAGE_END_DELIMITER.Length);
-            }
-
-            return (completeMessages, remainingContent);
-        }
-
         private async Task ProcessSerialMessage(string message)
         {
             try
             {
-                _logger.LogDebug("Received serial message: {Message}", message);
-
                 // All messages from ESP32 are commands - no prefix needed
                 var command = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions
                 {
@@ -320,6 +276,7 @@ namespace UniMixerServer.Communication
 
                 if (command != null)
                 {
+                    _logger.LogInformation("Command: {CommandType} from ESP32", command.CommandType);
                     CommandReceived?.Invoke(this, new CommandReceivedEventArgs
                     {
                         Command = command,
@@ -329,12 +286,12 @@ namespace UniMixerServer.Communication
                 }
                 else
                 {
-                    _logger.LogWarning("Failed to parse serial command from message: {Message}", message);
+                    _logger.LogWarning("Failed to parse command from {Length} char message", message.Length);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing serial message");
+                _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
             }
 
             await Task.CompletedTask;

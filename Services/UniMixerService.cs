@@ -231,20 +231,16 @@ namespace UniMixerServer.Services
             {
                 var sessions = await _audioManager.GetAllAudioSessionsAsync();
                 
-                // Filter out invalid sessions and log them
+                // Filter out invalid sessions
                 var validSessions = sessions.Where(s => 
-                {
-                    if (s.ProcessId <= 0 || string.IsNullOrWhiteSpace(s.ProcessName))
-                    {
-                        _logger.LogWarning("Filtering out invalid session: PID={ProcessId}, Name='{ProcessName}'", 
-                            s.ProcessId, s.ProcessName);
-                        return false;
-                    }
-                    return true;
-                }).ToList();
+                    s.ProcessId > 0 && !string.IsNullOrWhiteSpace(s.ProcessName)
+                ).ToList();
 
-                _logger.LogDebug("Filtered sessions: {ValidCount}/{TotalCount} sessions are valid", 
-                    validSessions.Count, sessions.Count);
+                if (validSessions.Count != sessions.Count)
+                {
+                    _logger.LogWarning("Filtered out {FilteredCount} invalid sessions", 
+                        sessions.Count - validSessions.Count);
+                }
 
                 var statusMessage = new StatusMessage
                 {
@@ -263,13 +259,13 @@ namespace UniMixerServer.Services
                 };
 
                 // Broadcast to all connected communication handlers
-                var broadcastTasks = _communicationHandlers
-                    .Where(h => h.IsConnected)
-                    .Select(h => h.SendStatusAsync(statusMessage));
+                var connectedHandlers = _communicationHandlers.Where(h => h.IsConnected).ToList();
+                var broadcastTasks = connectedHandlers.Select(h => h.SendStatusAsync(statusMessage));
 
                 await Task.WhenAll(broadcastTasks);
 
-                _logger.LogDebug("Status broadcasted to {HandlerCount} handlers", broadcastTasks.Count());
+                _logger.LogDebug("Status sent to {HandlerCount} handlers, {SessionCount} sessions", 
+                    connectedHandlers.Count, validSessions.Count);
             }
             catch (Exception ex)
             {
