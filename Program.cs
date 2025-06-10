@@ -143,6 +143,49 @@ namespace UniMixerServer
                 Console.WriteLine("Press Ctrl+C to stop the service");
 
                 var host = hostBuilder.Build();
+
+                // Print final configuration after all cascading initialization
+                var finalConfig = host.Services.GetRequiredService<AppConfig>();
+                Console.WriteLine("\n=== FINAL CONFIGURATION ===");
+                Console.WriteLine($"Device ID: {finalConfig.DeviceId}");
+                Console.WriteLine($"Status Broadcast Interval: {finalConfig.StatusBroadcastIntervalMs}ms");
+                Console.WriteLine($"Audio Session Refresh Interval: {finalConfig.AudioSessionRefreshIntervalMs}ms");
+                Console.WriteLine($"Enable MQTT: {finalConfig.EnableMqtt}");
+                Console.WriteLine($"Enable Serial: {finalConfig.EnableSerial}");
+
+                Console.WriteLine("\n--- Logging Configuration ---");
+                Console.WriteLine($"Log Level: {finalConfig.Logging.LogLevel}");
+                Console.WriteLine($"Enable Console Logging: {finalConfig.Logging.EnableConsoleLogging}");
+                Console.WriteLine($"Enable File Logging: {finalConfig.Logging.EnableFileLogging}");
+                Console.WriteLine($"Log File Path: {finalConfig.Logging.LogFilePath}");
+                Console.WriteLine($"Max Log File Size: {finalConfig.Logging.MaxLogFileSizeMB}MB");
+                Console.WriteLine($"Max Log Files: {finalConfig.Logging.MaxLogFiles}");
+
+                Console.WriteLine("\n--- Audio Configuration ---");
+                Console.WriteLine($"Include All Devices: {finalConfig.Audio.IncludeAllDevices}");
+                Console.WriteLine($"Include Capture Devices: {finalConfig.Audio.IncludeCaptureDevices}");
+                Console.WriteLine($"Data Flow: {finalConfig.Audio.DataFlow}");
+                Console.WriteLine($"Device Role: {finalConfig.Audio.DeviceRole}");
+                Console.WriteLine($"Enable Detailed Logging: {finalConfig.Audio.EnableDetailedLogging}");
+
+                Console.WriteLine("\n--- Serial Configuration ---");
+                Console.WriteLine($"Port Name: {finalConfig.Serial.PortName}");
+                Console.WriteLine($"Baud Rate: {finalConfig.Serial.BaudRate}");
+                Console.WriteLine($"Enable Auto Reconnect: {finalConfig.Serial.EnableAutoReconnect}");
+
+                if (finalConfig.EnableMqtt)
+                {
+                    Console.WriteLine("\n--- MQTT Configuration ---");
+                    Console.WriteLine($"Broker Host: {finalConfig.Mqtt.BrokerHost}");
+                    Console.WriteLine($"Broker Port: {finalConfig.Mqtt.BrokerPort}");
+                    Console.WriteLine($"Client ID: {finalConfig.Mqtt.ClientId}");
+                    Console.WriteLine($"Username: {(string.IsNullOrEmpty(finalConfig.Mqtt.Username) ? "(empty)" : "***set***")}");
+                    Console.WriteLine($"Password: {(string.IsNullOrEmpty(finalConfig.Mqtt.Password) ? "(empty)" : "***set***")}");
+                    Console.WriteLine($"Use TLS: {finalConfig.Mqtt.UseTls}");
+                }
+
+                Console.WriteLine("===============================\n");
+
                 await host.RunAsync();
             }
             catch (Exception ex)

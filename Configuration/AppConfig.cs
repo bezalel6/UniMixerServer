@@ -19,7 +19,7 @@ namespace UniMixerServer.Configuration
         /// List of allowed process names or regex patterns. If empty, all processes are allowed.
         /// Can contain exact process names (e.g., "spotify.exe") or regex patterns (e.g., ".*music.*")
         /// </summary>
-        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music" };
+        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music", "Jellyfin" };
     }
 
     public class AudioConfig
@@ -92,6 +92,6 @@ namespace UniMixerServer.Configuration
         public string LogFilePath { get; set; } = "logs/unimixer-.log";
         public int MaxLogFileSizeMB { get; set; } = 10;
         public int MaxLogFiles { get; set; } = 5;
-        public bool EnableConsoleLogging { get; set; } = true;
+        public bool EnableConsoleLogging { get; set; } = false;
     }
 }
