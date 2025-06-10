@@ -141,12 +141,12 @@ namespace UniMixerServer.Communication
             {
                 // Create a clean JSON structure that matches what the ESP32 expects
                 var sessionsList = new List<object>();
-                foreach (var session in status.Sessions.Take(2))
+                foreach (var session in status.Sessions)
                 {
                     var sessionDict = new Dictionary<string, object>
                     {
                         ["processName"] = session.ProcessName ?? string.Empty,
-                        ["processId"] = session.ProcessId,
+                        // ["processId"] = session.ProcessId,
                         ["volume"] = session.Volume,
                         ["isMuted"] = session.IsMuted,
                         ["state"] = session.State ?? string.Empty
@@ -162,8 +162,8 @@ namespace UniMixerServer.Communication
 
                 var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions 
                 { 
-                    WriteIndented = false,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    // WriteIndented = false,
+                    // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
 
                 var message = $"{json}\n";
@@ -171,7 +171,7 @@ namespace UniMixerServer.Communication
                 // Concise logging - only essential info
                 _logger.LogDebug("Sending status: {SessionCount} sessions, {MessageLength} chars", 
                     sessionsList.Count, message.Length);
-                
+                _logger.LogDebug(json);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
             }
             catch (Exception ex)
