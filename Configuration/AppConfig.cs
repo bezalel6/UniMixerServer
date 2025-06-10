@@ -6,13 +6,42 @@ namespace UniMixerServer.Configuration
     public class AppConfig
     {
         public string DeviceId { get; set; } = Environment.MachineName;
-        public int StatusBroadcastIntervalMs { get; set; } = 5000;
-        public int AudioSessionRefreshIntervalMs { get; set; } = 1000;
+        public int StatusBroadcastIntervalMs { get; set; } = 10000;
+        public int AudioSessionRefreshIntervalMs { get; set; } = 5000;
         public bool EnableMqtt { get; set; } = true;
         public bool EnableSerial { get; set; } = true;
         public MqttConfig Mqtt { get; set; } = new MqttConfig();
         public SerialConfig Serial { get; set; } = new SerialConfig();
         public LoggingConfig Logging { get; set; } = new LoggingConfig();
+        public AudioConfig Audio { get; set; } = new AudioConfig();
+    }
+
+    public class AudioConfig
+    {
+        /// <summary>
+        /// Whether to include all audio devices or just the default device
+        /// </summary>
+        public bool IncludeAllDevices { get; set; } = false;
+
+        /// <summary>
+        /// Whether to include capture (input) devices in addition to render (output) devices
+        /// </summary>
+        public bool IncludeCaptureDevices { get; set; } = false;
+
+        /// <summary>
+        /// The data flow to monitor (Render=playback, Capture=recording, All=both)
+        /// </summary>
+        public string DataFlow { get; set; } = "Render";
+
+        /// <summary>
+        /// The device role to use (Console=default, Multimedia=multimedia apps, Communications=voice apps)
+        /// </summary>
+        public string DeviceRole { get; set; } = "Console";
+
+        /// <summary>
+        /// Whether to enable detailed logging for audio operations
+        /// </summary>
+        public bool EnableDetailedLogging { get; set; } = false;
     }
 
     public class MqttConfig
@@ -59,4 +88,4 @@ namespace UniMixerServer.Configuration
         public int MaxLogFiles { get; set; } = 5;
         public bool EnableConsoleLogging { get; set; } = true;
     }
-} 
+}

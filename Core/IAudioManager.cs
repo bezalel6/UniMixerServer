@@ -13,6 +13,13 @@ namespace UniMixerServer.Core
         Task<List<AudioSession>> GetAllAudioSessionsAsync();
 
         /// <summary>
+        /// Gets all currently active audio sessions with custom discovery configuration
+        /// </summary>
+        /// <param name="config">Audio discovery configuration</param>
+        /// <returns>List of active audio sessions</returns>
+        Task<List<AudioSession>> GetAllAudioSessionsAsync(AudioDiscoveryConfig? config);
+
+        /// <summary>
         /// Sets the volume for a specific process
         /// </summary>
         /// <param name="processId">Process ID to control</param>
@@ -83,4 +90,4 @@ namespace UniMixerServer.Core
         public List<AudioSession> Sessions { get; set; } = new List<AudioSession>();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
-} 
+}

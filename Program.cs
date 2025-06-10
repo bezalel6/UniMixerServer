@@ -34,7 +34,7 @@ namespace UniMixerServer
 
             // Load .env file for credentials
             EnvLoader.Load();
-            
+
             // Create host builder
             var hostBuilder = Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((context, config) =>
@@ -49,11 +49,11 @@ namespace UniMixerServer
                     // Get configuration
                     var configuration = context.Configuration;
                     var appConfig = configuration.Get<AppConfig>() ?? new AppConfig();
-                    
+
                     // Set default values if not provided
                     if (string.IsNullOrEmpty(appConfig.DeviceId))
                         appConfig.DeviceId = Environment.GetEnvironmentVariable("DEVICE_ID") ?? Environment.MachineName;
-                    
+
                     if (string.IsNullOrEmpty(appConfig.Mqtt.ClientId))
                         appConfig.Mqtt.ClientId = $"unimixer-{Environment.MachineName}";
 
@@ -65,13 +65,13 @@ namespace UniMixerServer
 
                     if (!string.IsNullOrEmpty(mqttBrokerUrl))
                         appConfig.Mqtt.BrokerHost = mqttBrokerUrl;
-                    
+
                     if (!string.IsNullOrEmpty(mqttClientId))
                         appConfig.Mqtt.ClientId = mqttClientId;
-                    
+
                     if (!string.IsNullOrEmpty(mqttUsername))
                         appConfig.Mqtt.Username = mqttUsername;
-                    
+
                     if (!string.IsNullOrEmpty(mqttPassword))
                         appConfig.Mqtt.Password = mqttPassword;
 
@@ -80,7 +80,11 @@ namespace UniMixerServer
                     services.AddSingleton(appConfig);
 
                     // Register core services
-                    services.AddSingleton<IAudioManager, AudioManager>();
+                    services.AddSingleton<IAudioManager>(provider =>
+                    {
+                        var logger = provider.GetRequiredService<ILogger<AudioManager>>();
+                        return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging);
+                    });
 
                     // Register communication handlers conditionally
                     if (appConfig.EnableMqtt)
@@ -105,7 +109,7 @@ namespace UniMixerServer
                 .UseSerilog((context, services, configuration) =>
                 {
                     var appConfig = context.Configuration.Get<AppConfig>() ?? new AppConfig();
-                    
+
                     configuration
                         .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
                         .Enrich.FromLogContext()

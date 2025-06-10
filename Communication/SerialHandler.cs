@@ -288,7 +288,7 @@ namespace UniMixerServer.Communication
                     _logger.LogWarning("Failed to parse command from {Length} char message", message.Length);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _logger.LogInformation(message);
                 // _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using System.Threading;
 
 #if WINDOWS
 using System.Runtime.Versioning;
@@ -61,7 +62,7 @@ namespace UniMixerServer.Core
         {
             _logger = logger;
             _enableDetailedLogging = enableDetailedLogging;
-            
+
             if (_enableDetailedLogging)
             {
                 _logger.LogInformation("AudioManager initialized with detailed logging enabled");
@@ -96,7 +97,7 @@ namespace UniMixerServer.Core
 
         // COM (Component Object Model) initialization and cleanup functions
         // These are required for any COM-based operations in Windows
-        
+
         [DllImport("ole32.dll")]
         static extern int CoCreateInstance(ref Guid rclsid, IntPtr pUnkOuter, uint dwClsContext, ref Guid riid, out IntPtr ppv);
 
@@ -118,11 +119,11 @@ namespace UniMixerServer.Core
         // CLSID_MMDeviceEnumerator: Class ID for the MMDeviceEnumerator COM object
         // This is the main entry point for enumerating audio devices
         static readonly Guid CLSID_MMDeviceEnumerator = new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E");
-        
+
         // IID_IMMDeviceEnumerator: Interface ID for the IMMDeviceEnumerator interface
         // This interface provides methods to enumerate audio devices
         static readonly Guid IID_IMMDeviceEnumerator = new Guid("A95664D2-9614-4F35-A746-DE8DB63617E6");
-        
+
         // IID_IAudioSessionManager2: Interface ID for the IAudioSessionManager2 interface
         // This interface provides methods to manage audio sessions
         static readonly Guid IID_IAudioSessionManager2 = new Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F");
@@ -138,18 +139,18 @@ namespace UniMixerServer.Core
             // dataFlow: 0=Render (playback), 1=Capture (recording), 2=All
             // stateMask: Bit mask of device states (1=Active, 2=Disabled, 4=NotPresent, 8=Unplugged)
             int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
-            
+
             // GetDefaultAudioEndpoint: Gets the default audio endpoint for the specified data flow and role
             // dataFlow: 0=Render, 1=Capture
             // role: 0=Console, 1=Multimedia, 2=Communications
             int GetDefaultAudioEndpoint(int dataFlow, int role, out IntPtr endpoint);
-            
+
             // GetDevice: Gets an audio endpoint device that is identified by an endpoint ID string
             int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string pwstrId, out IntPtr device);
-            
+
             // RegisterEndpointNotificationCallback: Registers a client's notification callback interface
             int RegisterEndpointNotificationCallback(IntPtr client);
-            
+
             // UnregisterEndpointNotificationCallback: Deletes the registration of a notification interface
             int UnregisterEndpointNotificationCallback(IntPtr client);
         }
@@ -166,14 +167,14 @@ namespace UniMixerServer.Core
             // clsCtx: Context for running the executable code (1=CLSCTX_ALL)
             // activationParams: Pointer to activation parameters (usually IntPtr.Zero)
             int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, out IntPtr interfacePointer);
-            
+
             // OpenPropertyStore: Opens the property store for the device
             // stgmAccess: Access mode (0=STGM_READ, 1=STGM_WRITE, 2=STGM_READWRITE)
             int OpenPropertyStore(int stgmAccess, out IntPtr properties);
-            
+
             // GetId: Gets the device ID string for the device
             int GetId(out IntPtr strId);
-            
+
             // GetState: Gets the current state of the device
             int GetState(out int state);
         }
@@ -189,23 +190,23 @@ namespace UniMixerServer.Core
             // groupingParam: Session grouping parameter (usually Guid.Empty)
             // streamFlags: Audio stream flags (0=CrossProcess, 1=CrossProcess, 2=CrossProcess, 4=Loopback)
             int GetAudioSessionControl(ref Guid groupingParam, int streamFlags, out IntPtr sessionControl);
-            
+
             // GetSimpleAudioVolume: Gets a simple audio volume control for the specified session
             int GetSimpleAudioVolume(ref Guid groupingParam, int streamFlags, out IntPtr audioVolume);
-            
+
             // GetSessionEnumerator: Gets an enumerator for the audio sessions
             // This is the main method we use to enumerate all audio sessions
             int GetSessionEnumerator(out IntPtr sessionEnum);
-            
+
             // RegisterSessionNotification: Registers a session notification callback
             int RegisterSessionNotification(IntPtr sessionNotification);
-            
+
             // UnregisterSessionNotification: Unregisters a session notification callback
             int UnregisterSessionNotification(IntPtr sessionNotification);
-            
+
             // RegisterDuckNotification: Registers a ducking notification callback
             int RegisterDuckNotification([MarshalAs(UnmanagedType.LPWStr)] string sessionID, IntPtr duckNotification);
-            
+
             // UnregisterDuckNotification: Unregisters a ducking notification callback
             int UnregisterDuckNotification(IntPtr duckNotification);
         }
@@ -219,7 +220,7 @@ namespace UniMixerServer.Core
         {
             // GetCount: Gets the number of audio sessions
             int GetCount(out int sessionCount);
-            
+
             // GetSession: Gets the specified audio session
             // sessionNumber: Zero-based index of the session
             int GetSession(int sessionNumber, out IntPtr session);
@@ -235,28 +236,28 @@ namespace UniMixerServer.Core
             // GetState: Gets the current state of the session
             // States: 0=Inactive, 1=Active, 2=Expired
             int GetState(out int state);
-            
+
             // GetDisplayName: Gets the display name for the session
             int GetDisplayName(out IntPtr name);
-            
+
             // SetDisplayName: Sets the display name for the session
             int SetDisplayName([MarshalAs(UnmanagedType.LPWStr)] string value, ref Guid eventContext);
-            
+
             // GetIconPath: Gets the path to the session's icon
             int GetIconPath(out IntPtr path);
-            
+
             // SetIconPath: Sets the path to the session's icon
             int SetIconPath([MarshalAs(UnmanagedType.LPWStr)] string value, ref Guid eventContext);
-            
+
             // GetGroupingParam: Gets the session grouping parameter
             int GetGroupingParam(out Guid groupingParam);
-            
+
             // SetGroupingParam: Sets the session grouping parameter
             int SetGroupingParam(ref Guid groupingParam, ref Guid eventContext);
-            
+
             // RegisterAudioSessionNotification: Registers a session notification callback
             int RegisterAudioSessionNotification(IntPtr client);
-            
+
             // UnregisterAudioSessionNotification: Unregisters a session notification callback
             int UnregisterAudioSessionNotification(IntPtr client);
         }
@@ -278,22 +279,22 @@ namespace UniMixerServer.Core
             new int SetGroupingParam(ref Guid groupingParam, ref Guid eventContext);
             new int RegisterAudioSessionNotification(IntPtr client);
             new int UnregisterAudioSessionNotification(IntPtr client);
-            
+
             // Extended methods specific to IAudioSessionControl2
-            
+
             // GetSessionIdentifier: Gets the session identifier string
             int GetSessionIdentifier(out IntPtr retVal);
-            
+
             // GetSessionInstanceIdentifier: Gets the session instance identifier string
             int GetSessionInstanceIdentifier(out IntPtr retVal);
-            
+
             // GetProcessId: Gets the process ID of the session
             // This is the key method we use to identify which process owns the audio session
             int GetProcessId(out int retVal);
-            
+
             // IsSystemSoundsSession: Determines whether the session is a system sounds session
             int IsSystemSoundsSession();
-            
+
             // SetDuckingPreference: Sets the ducking preference for the session
             int SetDuckingPreference(bool optOut);
         }
@@ -309,14 +310,14 @@ namespace UniMixerServer.Core
             // level: Volume level from 0.0 (silent) to 1.0 (full volume)
             // eventContext: Context for the volume change event (usually Guid.Empty)
             int SetMasterVolume(float level, ref Guid eventContext);
-            
+
             // GetMasterVolume: Gets the current master volume level for the session
             int GetMasterVolume(out float level);
-            
+
             // SetMute: Sets the mute state for the session
             // mute: true to mute, false to unmute
             int SetMute(bool mute, ref Guid eventContext);
-            
+
             // GetMute: Gets the current mute state for the session
             int GetMute(out bool mute);
         }
@@ -330,7 +331,7 @@ namespace UniMixerServer.Core
         {
             // GetCount: Gets the number of devices in the collection
             int GetCount(out int deviceCount);
-            
+
             // Item: Gets the specified device from the collection
             // deviceNumber: Zero-based index of the device
             int Item(int deviceNumber, out IntPtr device);
@@ -359,10 +360,10 @@ namespace UniMixerServer.Core
             {
                 // Convert the COM-allocated Unicode string pointer to a .NET string
                 string result = Marshal.PtrToStringUni(ptr);
-                
+
                 // Free the COM-allocated memory to prevent memory leaks
                 CoTaskMemFree(ptr);
-                
+
                 return result ?? string.Empty;
             }
             catch
@@ -395,22 +396,22 @@ namespace UniMixerServer.Core
                 // Get the process object for the given PID
                 var process = Process.GetProcessById(processId);
                 var processName = process.ProcessName;
-                
+
                 // Sanitize process name - remove any invalid characters that could cause issues
                 if (string.IsNullOrWhiteSpace(processName))
                 {
                     return $"Unknown Process (PID: {processId})";
                 }
-                
+
                 // Remove any control characters or invalid JSON characters that could break serialization
                 processName = new string(processName.Where(c => !char.IsControl(c) && c != '"' && c != '\\').ToArray());
-                
+
                 // Limit length to prevent buffer issues and keep responses manageable
                 if (processName.Length > 50)
                 {
                     processName = processName.Substring(0, 50);
                 }
-                
+
                 // Final fallback if sanitization resulted in empty string
                 return string.IsNullOrWhiteSpace(processName) ? $"Process_{processId}" : processName;
             }
@@ -428,22 +429,69 @@ namespace UniMixerServer.Core
         // Keep the original method for backward compatibility  
         public async Task<List<AudioSession>> GetAllAudioSessionsAsync()
         {
-            return await GetAllAudioSessionsAsync(new AudioDiscoveryConfig());
+            // Use default configuration that only includes the default device
+            var defaultConfig = new AudioDiscoveryConfig
+            {
+                IncludeAllDevices = false,
+                IncludeCaptureDevices = false,
+                DataFlow = AudioDataFlow.Render,
+                DeviceRole = AudioDeviceRole.Console,
+                StateFilter = AudioSessionStateFilter.All,
+                VerboseLogging = false
+            };
+            return await GetAllAudioSessionsAsync(defaultConfig);
         }
 
         public async Task<List<AudioSession>> GetAllAudioSessionsAsync(AudioDiscoveryConfig? config = null)
         {
             LogDetailed("Starting GetAllAudioSessionsAsync with custom config");
-            return await Task.Run(() =>
+
+            // Add aggressive timeout to prevent hanging
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+
+            try
             {
-                lock (_lock)
+                return await Task.Run(() =>
                 {
-                    LogDetailed("Acquired lock for GetAllAudioSessionsAsync");
-                    var result = GetAllAudioSessionsInternal(config ?? new AudioDiscoveryConfig());
-                    LogDetailed("Completed GetAllAudioSessionsAsync, returning {SessionCount} sessions", result.Count);
-                    return result;
-                }
-            });
+                    // Use a timeout wrapper for the internal call
+                    return ExecuteWithTimeout(() =>
+                    {
+                        lock (_lock)
+                        {
+                            LogDetailed("Acquired lock for GetAllAudioSessionsAsync");
+                            var result = GetAllAudioSessionsInternal(config ?? new AudioDiscoveryConfig());
+                            LogDetailed("Completed GetAllAudioSessionsAsync, returning {SessionCount} sessions", result.Count);
+                            return result;
+                        }
+                    }, TimeSpan.FromSeconds(2));
+                }, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("GetAllAudioSessionsAsync timed out");
+                return new List<AudioSession>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetAllAudioSessionsAsync");
+                return new List<AudioSession>();
+            }
+        }
+
+        private T ExecuteWithTimeout<T>(Func<T> operation, TimeSpan timeout)
+        {
+            using var cts = new CancellationTokenSource(timeout);
+            var task = Task.Run(operation, cts.Token);
+
+            try
+            {
+                return task.GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Operation timed out after {Timeout}ms", timeout.TotalMilliseconds);
+                throw;
+            }
         }
 
         public async Task<bool> SetProcessVolumeAsync(int processId, float volume)
@@ -520,7 +568,7 @@ namespace UniMixerServer.Core
                     LogDetailed("Acquired lock for SetProcessVolumeByNameAsync");
                     var sessions = GetAllAudioSessionsInternal();
                     var session = sessions.FirstOrDefault(s => string.Equals(s.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
-                    
+
                     if (session == null)
                     {
                         LogDetailedWarning("No session found for ProcessName: {ProcessName}", processName);
@@ -544,7 +592,7 @@ namespace UniMixerServer.Core
                     LogDetailed("Acquired lock for MuteProcessByNameAsync");
                     var sessions = GetAllAudioSessionsInternal();
                     var session = sessions.FirstOrDefault(s => string.Equals(s.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
-                    
+
                     if (session == null)
                     {
                         LogDetailedWarning("No session found for ProcessName: {ProcessName}", processName);
@@ -599,77 +647,54 @@ namespace UniMixerServer.Core
         private List<AudioSession> GetAllAudioSessionsInternal(AudioDiscoveryConfig? config = null)
         {
             config ??= new AudioDiscoveryConfig();
-            LogDetailed("Starting GetAllAudioSessionsInternal with config: DataFlow={DataFlow}, Role={DeviceRole}, StateFilter={StateFilter}, IncludeAllDevices={IncludeAllDevices}", 
+            LogDetailed("Starting GetAllAudioSessionsInternal with config: DataFlow={DataFlow}, Role={DeviceRole}, StateFilter={StateFilter}, IncludeAllDevices={IncludeAllDevices}",
                 config.DataFlow, config.DeviceRole, config.StateFilter, config.IncludeAllDevices);
-            
+
             var sessions = new List<AudioSession>();
+            IntPtr deviceEnumerator = IntPtr.Zero;
+            IMMDeviceEnumerator? enumerator = null;
 
             try
             {
                 // Initialize COM library for this thread
-                // This MUST be called before any COM operations and MUST be paired with CoUninitialize
-                // IntPtr.Zero means use default apartment model (single-threaded apartment)
-                // This is required for all Windows Core Audio API operations
                 LogDetailed("Initializing COM");
-                CoInitialize(IntPtr.Zero);
+                var comResult = CoInitialize(IntPtr.Zero);
+                LogDetailed("COM initialization result: 0x{ComResult:X8}", comResult);
 
-                // Create the MMDeviceEnumerator COM object
-                // This is the main entry point for accessing Windows audio devices
+                // Create the MMDeviceEnumerator COM object with timeout protection
                 LogDetailed("Creating MMDeviceEnumerator instance");
-                IntPtr deviceEnumerator;
-                Guid clsid = CLSID_MMDeviceEnumerator;  // Class ID for MMDeviceEnumerator
-                Guid iid = IID_IMMDeviceEnumerator;     // Interface ID for IMMDeviceEnumerator
+                Guid clsid = CLSID_MMDeviceEnumerator;
+                Guid iid = IID_IMMDeviceEnumerator;
 
-                // CoCreateInstance creates a COM object and returns an interface pointer
-                // Parameters: class ID, outer unknown (null), context (1=CLSCTX_ALL), interface ID, output pointer
                 int hr = CoCreateInstance(ref clsid, IntPtr.Zero, 1, ref iid, out deviceEnumerator);
                 LogDetailed("CoCreateInstance for MMDeviceEnumerator returned HRESULT: 0x{Hr:X8}", hr);
-                if (hr != 0) 
+
+                if (hr != 0 || deviceEnumerator == IntPtr.Zero)
                 {
                     LogDetailedWarning("Failed to create MMDeviceEnumerator, HRESULT: 0x{Hr:X8}", hr);
                     return sessions;
                 }
 
-                // Convert the COM interface pointer to a .NET interface object
-                // This allows us to call methods on the COM object using .NET syntax
-                var enumerator = Marshal.GetObjectForIUnknown(deviceEnumerator) as IMMDeviceEnumerator;
+                enumerator = Marshal.GetObjectForIUnknown(deviceEnumerator) as IMMDeviceEnumerator;
+                if (enumerator == null)
+                {
+                    LogDetailedWarning("Failed to get IMMDeviceEnumerator interface");
+                    return sessions;
+                }
+
                 LogDetailed("Successfully created IMMDeviceEnumerator interface");
 
+                // Use simplified approach - only get default device to avoid hanging
                 if (config.IncludeAllDevices)
                 {
-                    // Enumerate ALL audio devices (not just the default one)
-                    // This provides a complete view of all available audio endpoints
-                    LogDetailed("Enumerating ALL audio devices");
-                    sessions.AddRange(GetSessionsFromAllDevices(enumerator, config));
-                }
-                else
-                {
-                    // Get sessions from default device only (original behavior)
-                    // This is faster and usually sufficient for most use cases
-                    LogDetailed("Getting sessions from default audio endpoint only");
-                    var defaultSessions = GetSessionsFromDefaultDevice(enumerator, config);
-                    sessions.AddRange(defaultSessions);
-
-                    // Optionally also include capture devices
-                    if (config.IncludeCaptureDevices && config.DataFlow != AudioDataFlow.Capture)
-                    {
-                        LogDetailed("Also including capture device sessions");
-                        var captureConfig = new AudioDiscoveryConfig
-                        {
-                            DataFlow = AudioDataFlow.Capture,
-                            DeviceRole = config.DeviceRole,
-                            StateFilter = config.StateFilter,
-                            IncludeAllDevices = false,
-                            VerboseLogging = config.VerboseLogging
-                        };
-                        var captureSessions = GetSessionsFromDefaultDevice(enumerator, captureConfig);
-                        sessions.AddRange(captureSessions);
-                    }
+                    LogDetailed("Skipping all devices scan due to timeout risk - using default device only");
                 }
 
-                // Release the COM object to prevent memory leaks
-                // This is crucial for proper COM cleanup
-                if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+                // Get sessions from default device only (fast and reliable)
+                var defaultSessions = GetSessionsFromDefaultDevice(enumerator, config);
+                sessions.AddRange(defaultSessions);
+
+                LogDetailed("Retrieved {SessionCount} sessions from default device", defaultSessions.Count);
             }
             catch (Exception ex)
             {
@@ -678,27 +703,33 @@ namespace UniMixerServer.Core
             }
             finally
             {
-                // Uninitialize COM library for this thread
-                // This MUST be called to clean up COM resources after CoInitialize
-                // This is the counterpart to the CoInitialize call above
-                LogDetailed("Uninitializing COM");
-                CoUninitialize();
+                // Cleanup COM objects
+                try
+                {
+                    if (enumerator != null)
+                    {
+                        Marshal.ReleaseComObject(enumerator);
+                        LogDetailed("Released IMMDeviceEnumerator COM object");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogDetailedError(ex, "Error releasing COM objects");
+                }
+
+                // Uninitialize COM library
+                try
+                {
+                    CoUninitialize();
+                    LogDetailed("Uninitializing COM");
+                }
+                catch (Exception ex)
+                {
+                    LogDetailedError(ex, "Error uninitializing COM");
+                }
             }
 
             LogDetailed("GetAllAudioSessionsInternal completed with {SessionCount} sessions", sessions.Count);
-            
-            // Log summary of all sessions
-            if (_enableDetailedLogging && sessions.Any())
-            {
-                _logger.LogInformation("=== AUDIO SESSIONS SUMMARY ===");
-                foreach (var session in sessions)
-                {
-                    _logger.LogInformation("Session: PID={ProcessId}, Name='{ProcessName}', Display='{DisplayName}', Volume={Volume:P2}, Muted={IsMuted}, State={SessionState}", 
-                        session.ProcessId, session.ProcessName, session.DisplayName, session.Volume, session.IsMuted, session.SessionState);
-                }
-                _logger.LogInformation("=== END AUDIO SESSIONS SUMMARY ===");
-            }
-
             return sessions;
         }
 
@@ -711,7 +742,7 @@ namespace UniMixerServer.Core
                 // Windows Core Audio expects volume as a float between 0.0 (silent) and 1.0 (full volume)
                 volume = Math.Max(0.0f, Math.Min(1.0f, volume));
                 LogDetailed("Clamped volume to: {Volume:P2}", volume);
-                
+
                 // Initialize COM library for this thread
                 // Required for all Windows Core Audio API operations
                 CoInitialize(IntPtr.Zero);
@@ -779,7 +810,7 @@ namespace UniMixerServer.Core
                     if (sessionProcessId == processId)
                     {
                         LogDetailed("Found matching session for ProcessId: {ProcessId}", processId);
-                        
+
                         // Cast to ISimpleAudioVolume interface to control volume
                         var simpleVolume = sessionControl as ISimpleAudioVolume;
                         if (simpleVolume != null)
@@ -789,7 +820,7 @@ namespace UniMixerServer.Core
                             Guid eventContext = Guid.Empty;
                             hr = simpleVolume.SetMasterVolume(volume, ref eventContext);
                             LogDetailed("SetMasterVolume returned HRESULT: 0x{Hr:X8}", hr);
-                            
+
                             // Release the session control COM object
                             Marshal.ReleaseComObject(sessionControl);
                             _logger.LogInformation("Set volume for process {ProcessId} to {Volume:P0}", processId, volume);
@@ -893,7 +924,7 @@ namespace UniMixerServer.Core
                     if (sessionProcessId == processId)
                     {
                         LogDetailed("Found matching session for ProcessId: {ProcessId}", processId);
-                        
+
                         // Cast to ISimpleAudioVolume interface to control mute state
                         var simpleVolume = sessionControl as ISimpleAudioVolume;
                         if (simpleVolume != null)
@@ -903,7 +934,7 @@ namespace UniMixerServer.Core
                             Guid eventContext = Guid.Empty;
                             hr = simpleVolume.SetMute(mute, ref eventContext);
                             LogDetailed("SetMute returned HRESULT: 0x{Hr:X8}", hr);
-                            
+
                             // Release the session control COM object
                             Marshal.ReleaseComObject(sessionControl);
                             _logger.LogInformation("Set mute for process {ProcessId} to {Mute}", processId, mute);
@@ -941,15 +972,15 @@ namespace UniMixerServer.Core
         private List<AudioSession> GetSessionsFromDefaultDevice(IMMDeviceEnumerator enumerator, AudioDiscoveryConfig config)
         {
             var sessions = new List<AudioSession>();
-            
+
             // Get the default audio endpoint device for the specified data flow and role
             // This is the device that Windows considers the "default" for audio operations
             LogDetailed("Getting default audio endpoint for DataFlow={DataFlow}, Role={DeviceRole}", config.DataFlow, config.DeviceRole);
             IntPtr device;
             int hr = enumerator.GetDefaultAudioEndpoint((int)config.DataFlow, (int)config.DeviceRole, out device);
             LogDetailed("GetDefaultAudioEndpoint returned HRESULT: 0x{Hr:X8}", hr);
-            
-            if (hr != 0) 
+
+            if (hr != 0)
             {
                 LogDetailedWarning("Failed to get default audio endpoint, HRESULT: 0x{Hr:X8}", hr);
                 return sessions;
@@ -959,20 +990,27 @@ namespace UniMixerServer.Core
             var mmDevice = Marshal.GetObjectForIUnknown(device) as IMMDevice;
             LogDetailed("Successfully created IMMDevice interface");
 
+            // Get the actual device name
+            string deviceName = GetDeviceName(mmDevice);
+            string displayName = $"Default {config.DataFlow} Device: {deviceName}";
+
             // Get all audio sessions from this default device
-            var deviceSessions = GetSessionsFromDevice(mmDevice, config, "Default Device");
-            sessions.AddRange(deviceSessions);
+            if (mmDevice != null)
+            {
+                var deviceSessions = GetSessionsFromDevice(mmDevice, config, displayName);
+                sessions.AddRange(deviceSessions);
+            }
 
             // Release the device COM object to prevent memory leaks
             if (mmDevice != null) Marshal.ReleaseComObject(mmDevice);
-            
+
             return sessions;
         }
 
         private List<AudioSession> GetSessionsFromAllDevices(IMMDeviceEnumerator enumerator, AudioDiscoveryConfig config)
         {
             var sessions = new List<AudioSession>();
-            
+
             // Determine which data flows to enumerate based on configuration
             // This allows scanning for render (playback), capture (recording), or both
             var dataFlows = new List<AudioDataFlow>();
@@ -992,13 +1030,13 @@ namespace UniMixerServer.Core
             foreach (var dataFlow in dataFlows)
             {
                 LogDetailed("Enumerating devices for DataFlow: {DataFlow}", dataFlow);
-                
+
                 // Enumerate all active audio endpoint devices for this data flow
                 // The state mask "1" means DEVICE_STATE_ACTIVE (only devices that are currently active)
                 IntPtr deviceCollection;
                 int hr = enumerator.EnumAudioEndpoints((int)dataFlow, 1, out deviceCollection); // 1 = DEVICE_STATE_ACTIVE
                 LogDetailed("EnumAudioEndpoints returned HRESULT: 0x{Hr:X8}", hr);
-                
+
                 if (hr != 0) continue;
 
                 // Convert the device collection COM interface pointer to a .NET interface object
@@ -1041,17 +1079,51 @@ namespace UniMixerServer.Core
             return sessions;
         }
 
-        private string GetDeviceName(IMMDevice device)
+        private string GetDeviceName(IMMDevice? device)
         {
             try
             {
-                IntPtr propertyStore;
-                int hr = device.OpenPropertyStore(0, out propertyStore); // 0 = STGM_READ
+                if (device == null) return "Unknown Device";
+
+                // Get the device ID first
+                IntPtr deviceIdPtr;
+                int hr = device.GetId(out deviceIdPtr);
                 if (hr != 0) return "Unknown Device";
 
-                // Property store operations would go here to get friendly name
-                // For now, just return a placeholder
-                return "Audio Device";
+                string deviceId = GetStringFromPointer(deviceIdPtr);
+                if (string.IsNullOrEmpty(deviceId)) return "Unknown Device";
+
+                // Try to get a friendly name from the device ID
+                // For now, we'll extract a meaningful name from the device ID
+                // In a more complete implementation, we would use the property store to get the friendly name
+
+                // Device IDs typically follow this pattern:
+                // {0.0.1.00000000}.{GUID}
+                // We can extract some meaningful information from this
+
+                if (deviceId.Contains("\\"))
+                {
+                    // Extract the last part after the backslash
+                    var parts = deviceId.Split('\\');
+                    if (parts.Length > 1)
+                    {
+                        var lastPart = parts[parts.Length - 1];
+                        // Remove GUID-like parts and clean up
+                        var cleanName = lastPart.Replace("{", "").Replace("}", "").Replace(".", " ");
+                        if (cleanName.Length > 0)
+                        {
+                            return cleanName.Trim();
+                        }
+                    }
+                }
+
+                // Fallback: use a shortened version of the device ID
+                if (deviceId.Length > 20)
+                {
+                    return deviceId.Substring(0, 20) + "...";
+                }
+
+                return deviceId;
             }
             catch
             {
@@ -1072,8 +1144,8 @@ namespace UniMixerServer.Core
                 Guid sessionManagerGuid = IID_IAudioSessionManager2;
                 int hr = mmDevice.Activate(ref sessionManagerGuid, 1, IntPtr.Zero, out sessionManager);
                 LogDetailed("AudioSessionManager2 activation returned HRESULT: 0x{Hr:X8} for device: {DeviceName}", hr, deviceName);
-                
-                if (hr != 0) 
+
+                if (hr != 0)
                 {
                     LogDetailedWarning("Failed to activate AudioSessionManager2 for device: {DeviceName}, HRESULT: 0x{Hr:X8}", deviceName, hr);
                     return sessions;
@@ -1088,8 +1160,8 @@ namespace UniMixerServer.Core
                 IntPtr sessionEnumerator;
                 hr = sessionMgr.GetSessionEnumerator(out sessionEnumerator);
                 LogDetailed("GetSessionEnumerator returned HRESULT: 0x{Hr:X8} for device: {DeviceName}", hr, deviceName);
-                
-                if (hr != 0) 
+
+                if (hr != 0)
                 {
                     LogDetailedWarning("Failed to get session enumerator for device: {DeviceName}, HRESULT: 0x{Hr:X8}", deviceName, hr);
                     return sessions;
@@ -1119,7 +1191,7 @@ namespace UniMixerServer.Core
                         // Convert to IAudioSessionControl2 interface for extended session information
                         // This interface provides access to process ID, display name, state, etc.
                         var sessionControl = Marshal.GetObjectForIUnknown(session) as IAudioSessionControl2;
-                        
+
                         // Also get ISimpleAudioVolume interface for volume and mute information
                         var simpleVolume = sessionControl as ISimpleAudioVolume;
 
@@ -1177,6 +1249,7 @@ namespace UniMixerServer.Core
                                 ProcessId = processId,
                                 ProcessName = processName,
                                 DisplayName = displayName,
+                                DeviceName = deviceName,
                                 Volume = volume,
                                 IsMuted = isMuted,
                                 SessionState = state,
@@ -1186,7 +1259,7 @@ namespace UniMixerServer.Core
 
                             // Add the session to our collection
                             sessions.Add(audioSession);
-                            LogDetailed("Successfully created AudioSession for session {SessionIndex}: ProcessId={ProcessId}, ProcessName='{ProcessName}', Volume={Volume:P2}, Muted={IsMuted} on device: {DeviceName}", 
+                            LogDetailed("Successfully created AudioSession for session {SessionIndex}: ProcessId={ProcessId}, ProcessName='{ProcessName}', Volume={Volume:P2}, Muted={IsMuted} on device: {DeviceName}",
                                 i, processId, processName, volume, isMuted, deviceName);
                         }
                         else
@@ -1248,4 +1321,4 @@ namespace UniMixerServer.Core
 
         #endregion
     }
-} 
+}

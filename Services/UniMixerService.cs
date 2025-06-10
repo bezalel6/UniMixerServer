@@ -189,7 +189,8 @@ namespace UniMixerServer.Services
         {
             try
             {
-                var sessions = await _audioManager.GetAllAudioSessionsAsync();
+                var config = CreateAudioDiscoveryConfig();
+                var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
 
                 // Check if sessions have changed
                 if (HasSessionsChanged(sessions))
@@ -213,7 +214,7 @@ namespace UniMixerServer.Services
             // Compare each session
             foreach (var newSession in newSessions)
             {
-                var oldSession = _lastKnownSessions.FirstOrDefault(s => s.ProcessId == newSession.ProcessId);
+                var oldSession = _lastKnownSessions.FirstOrDefault(s => s.ProcessName == newSession.ProcessName);
                 if (oldSession == null)
                     return true;
 
@@ -230,7 +231,8 @@ namespace UniMixerServer.Services
         {
             try
             {
-                var sessions = await _audioManager.GetAllAudioSessionsAsync();
+                var config = CreateAudioDiscoveryConfig();
+                var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
                 foreach (var session in sessions)
                 {
                     _logger.LogDebug("Session: {Session}", session.ToString());
@@ -276,6 +278,41 @@ namespace UniMixerServer.Services
             {
                 _logger.LogError(ex, "Error broadcasting status");
             }
+        }
+
+        private UniMixerServer.Core.AudioDiscoveryConfig CreateAudioDiscoveryConfig()
+        {
+            return new UniMixerServer.Core.AudioDiscoveryConfig
+            {
+                IncludeAllDevices = _config.Audio.IncludeAllDevices,
+                IncludeCaptureDevices = _config.Audio.IncludeCaptureDevices,
+                DataFlow = ParseDataFlow(_config.Audio.DataFlow),
+                DeviceRole = ParseDeviceRole(_config.Audio.DeviceRole),
+                StateFilter = UniMixerServer.Core.AudioSessionStateFilter.All,
+                VerboseLogging = _config.Audio.EnableDetailedLogging
+            };
+        }
+
+        private UniMixerServer.Core.AudioDataFlow ParseDataFlow(string dataFlow)
+        {
+            return dataFlow?.ToLowerInvariant() switch
+            {
+                "render" => UniMixerServer.Core.AudioDataFlow.Render,
+                "capture" => UniMixerServer.Core.AudioDataFlow.Capture,
+                "all" => UniMixerServer.Core.AudioDataFlow.All,
+                _ => UniMixerServer.Core.AudioDataFlow.Render
+            };
+        }
+
+        private UniMixerServer.Core.AudioDeviceRole ParseDeviceRole(string deviceRole)
+        {
+            return deviceRole?.ToLowerInvariant() switch
+            {
+                "console" => UniMixerServer.Core.AudioDeviceRole.Console,
+                "multimedia" => UniMixerServer.Core.AudioDeviceRole.Multimedia,
+                "communications" => UniMixerServer.Core.AudioDeviceRole.Communications,
+                _ => UniMixerServer.Core.AudioDeviceRole.Console
+            };
         }
 
         private async void OnCommandReceived(object? sender, CommandReceivedEventArgs e)
@@ -364,14 +401,16 @@ namespace UniMixerServer.Services
                         break;
 
                     case AudioCommandType.GetStatus:
-                        var sessions = await _audioManager.GetAllAudioSessionsAsync();
+                        var config = CreateAudioDiscoveryConfig();
+                        var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
                         result.Success = true;
                         result.Message = $"Retrieved {sessions.Count} audio sessions";
                         result.Data = sessions;
                         break;
 
                     case AudioCommandType.GetAllSessions:
-                        var allSessions = await _audioManager.GetAllAudioSessionsAsync();
+                        var allSessionsConfig = CreateAudioDiscoveryConfig();
+                        var allSessions = await _audioManager.GetAllAudioSessionsAsync(allSessionsConfig);
                         result.Success = true;
                         result.Message = $"Retrieved {allSessions.Count} audio sessions";
                         result.Data = allSessions;
