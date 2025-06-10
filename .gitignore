@@ -417,4 +417,7 @@ $RECYCLE.BIN/
 *.msp
 
 # Windows shortcuts
-*.lnk 
+*.lnk
+
+# Environment files (contains credentials)
+.env 
