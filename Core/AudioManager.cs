@@ -386,6 +386,114 @@ namespace UniMixerServer.Core
             int Item(int deviceNumber, out IntPtr device);
         }
 
+        // IAudioEndpointVolume: Device endpoint volume control interface
+        // This interface controls the master volume of an audio endpoint device
+        [ComImport]
+        [Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        interface IAudioEndpointVolume
+        {
+            // RegisterControlChangeNotify: Registers a notification callback
+            int RegisterControlChangeNotify(IntPtr client);
+
+            // UnregisterControlChangeNotify: Unregisters a notification callback
+            int UnregisterControlChangeNotify(IntPtr client);
+
+            // GetChannelCount: Gets the number of channels in the audio stream
+            int GetChannelCount(out int channelCount);
+
+            // SetMasterVolumeLevel: Sets the master volume level in decibels
+            int SetMasterVolumeLevel(float level, ref Guid eventContext);
+
+            // SetMasterVolumeLevelScalar: Sets the master volume level as a scalar value
+            int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
+
+            // GetMasterVolumeLevel: Gets the master volume level in decibels
+            int GetMasterVolumeLevel(out float level);
+
+            // GetMasterVolumeLevelScalar: Gets the master volume level as a scalar value
+            int GetMasterVolumeLevelScalar(out float level);
+
+            // SetChannelVolumeLevel: Sets the volume level for a specific channel
+            int SetChannelVolumeLevel(int channel, float level, ref Guid eventContext);
+
+            // SetChannelVolumeLevelScalar: Sets the volume level for a specific channel as a scalar
+            int SetChannelVolumeLevelScalar(int channel, float level, ref Guid eventContext);
+
+            // GetChannelVolumeLevel: Gets the volume level for a specific channel
+            int GetChannelVolumeLevel(int channel, out float level);
+
+            // GetChannelVolumeLevelScalar: Gets the volume level for a specific channel as a scalar
+            int GetChannelVolumeLevelScalar(int channel, out float level);
+
+            // SetMute: Sets the mute state for the endpoint
+            int SetMute(bool mute, ref Guid eventContext);
+
+            // GetMute: Gets the current mute state for the endpoint
+            int GetMute(out bool mute);
+
+            // GetVolumeStepInfo: Gets information about volume step increments
+            int GetVolumeStepInfo(out int stepCount, out int currentStep);
+
+            // VolumeStepUp: Increases volume by one step
+            int VolumeStepUp(ref Guid eventContext);
+
+            // VolumeStepDown: Decreases volume by one step
+            int VolumeStepDown(ref Guid eventContext);
+
+            // QueryHardwareSupport: Queries the hardware support capabilities
+            int QueryHardwareSupport(out int hardwareSupportMask);
+
+            // GetVolumeRange: Gets the volume range in decibels
+            int GetVolumeRange(out float volumeMin, out float volumeMax, out float volumeIncrement);
+        }
+
+        // GUID for IAudioEndpointVolume interface
+        static readonly Guid IID_IAudioEndpointVolume = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
+
+        // IPropertyStore: Property store interface for device properties
+        [ComImport]
+        [Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        interface IPropertyStore
+        {
+            // GetCount: Gets the number of properties in the store
+            int GetCount(out int propertyCount);
+
+            // GetAt: Gets the property key at the specified index
+            int GetAt(int propertyIndex, out PropertyKey key);
+
+            // GetValue: Gets the value of the specified property
+            int GetValue(ref PropertyKey key, out PropertyVariant value);
+
+            // SetValue: Sets the value of the specified property
+            int SetValue(ref PropertyKey key, ref PropertyVariant value);
+
+            // Commit: Commits changes to the property store
+            int Commit();
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct PropertyKey
+        {
+            public Guid fmtid;
+            public int pid;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        struct PropertyVariant
+        {
+            [FieldOffset(0)] public short vt;
+            [FieldOffset(8)] public IntPtr pwszVal;
+        }
+
+        // Property key for device friendly name
+        static readonly PropertyKey PKEY_Device_FriendlyName = new PropertyKey
+        {
+            fmtid = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"),
+            pid = 14
+        };
+
         #endregion
 
         #region Helper Methods
@@ -1462,6 +1570,386 @@ namespace UniMixerServer.Core
             }
 
             return sessions;
+        }
+
+        #endregion
+
+        #region Default Audio Device Methods
+
+        public async Task<DefaultAudioDeviceInfo?> GetDefaultAudioDeviceAsync(AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console)
+        {
+            return await Task.Run(() => ExecuteWithTimeout(() => GetDefaultAudioDeviceInternal(dataFlow, deviceRole), TimeSpan.FromSeconds(5)));
+        }
+
+        public async Task<bool> SetDefaultDeviceVolumeAsync(float volume, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console)
+        {
+            return await Task.Run(() => ExecuteWithTimeout(() => SetDefaultDeviceVolumeInternal(volume, dataFlow, deviceRole), TimeSpan.FromSeconds(5)));
+        }
+
+        public async Task<bool> MuteDefaultDeviceAsync(bool mute, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console)
+        {
+            return await Task.Run(() => ExecuteWithTimeout(() => MuteDefaultDeviceInternal(mute, dataFlow, deviceRole), TimeSpan.FromSeconds(5)));
+        }
+
+        private DefaultAudioDeviceInfo? GetDefaultAudioDeviceInternal(AudioDataFlow dataFlow, AudioDeviceRole deviceRole)
+        {
+            lock (_lock)
+            {
+                _logger.LogDebug("Getting default audio device info - DataFlow: {DataFlow}, Role: {DeviceRole}", dataFlow, deviceRole);
+
+                try
+                {
+                    // Initialize COM
+                    CoInitialize(IntPtr.Zero);
+
+                    // Create the device enumerator
+                    IntPtr enumeratorPtr;
+                    Guid enumeratorClsid = CLSID_MMDeviceEnumerator;
+                    Guid enumeratorIid = IID_IMMDeviceEnumerator;
+                    int hr = CoCreateInstance(ref enumeratorClsid, IntPtr.Zero, 1, ref enumeratorIid, out enumeratorPtr);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to create IMMDeviceEnumerator, HRESULT: 0x{Hr:X8}", hr);
+                        return null;
+                    }
+
+                    var enumerator = Marshal.GetObjectForIUnknown(enumeratorPtr) as IMMDeviceEnumerator;
+                    if (enumerator == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDeviceEnumerator interface");
+                        return null;
+                    }
+
+                    // Get the default audio endpoint
+                    IntPtr device;
+                    hr = enumerator.GetDefaultAudioEndpoint((int)dataFlow, (int)deviceRole, out device);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogWarning("Failed to get default audio endpoint, HRESULT: 0x{Hr:X8}", hr);
+                        return null;
+                    }
+
+                    var mmDevice = Marshal.GetObjectForIUnknown(device) as IMMDevice;
+                    if (mmDevice == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDevice interface");
+                        return null;
+                    }
+
+                    // Get device ID
+                    IntPtr deviceIdPtr;
+                    mmDevice.GetId(out deviceIdPtr);
+                    string deviceId = GetStringFromPointer(deviceIdPtr);
+
+                    // Get device friendly name
+                    string friendlyName = GetDeviceFriendlyName(mmDevice);
+                    string deviceName = GetDeviceName(mmDevice);
+
+                    // Get volume and mute state
+                    var volumeInfo = GetDeviceVolumeInfo(mmDevice);
+
+                    var deviceInfo = new DefaultAudioDeviceInfo
+                    {
+                        DeviceId = deviceId,
+                        DeviceName = deviceName,
+                        FriendlyName = friendlyName,
+                        Volume = volumeInfo.Volume,
+                        IsMuted = volumeInfo.IsMuted,
+                        DataFlow = dataFlow,
+                        DeviceRole = deviceRole
+                    };
+
+                    _logger.LogDebug("Successfully retrieved default device info: {DeviceName} - Volume: {Volume:P2}, Muted: {IsMuted}",
+                        deviceName, volumeInfo.Volume, volumeInfo.IsMuted);
+
+                    // Clean up COM objects
+                    if (mmDevice != null) Marshal.ReleaseComObject(mmDevice);
+                    if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+
+                    return deviceInfo;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error getting default audio device info");
+                    return null;
+                }
+                finally
+                {
+                    CoUninitialize();
+                }
+            }
+        }
+
+        private bool SetDefaultDeviceVolumeInternal(float volume, AudioDataFlow dataFlow, AudioDeviceRole deviceRole)
+        {
+            lock (_lock)
+            {
+                _logger.LogDebug("Setting default device volume: {Volume:P2} - DataFlow: {DataFlow}, Role: {DeviceRole}", volume, dataFlow, deviceRole);
+
+                try
+                {
+                    // Clamp volume to valid range
+                    volume = Math.Max(0.0f, Math.Min(1.0f, volume));
+
+                    // Initialize COM
+                    CoInitialize(IntPtr.Zero);
+
+                    // Create the device enumerator
+                    IntPtr enumeratorPtr;
+                    Guid enumeratorClsid = CLSID_MMDeviceEnumerator;
+                    Guid enumeratorIid = IID_IMMDeviceEnumerator;
+                    int hr = CoCreateInstance(ref enumeratorClsid, IntPtr.Zero, 1, ref enumeratorIid, out enumeratorPtr);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to create IMMDeviceEnumerator, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var enumerator = Marshal.GetObjectForIUnknown(enumeratorPtr) as IMMDeviceEnumerator;
+                    if (enumerator == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDeviceEnumerator interface");
+                        return false;
+                    }
+
+                    // Get the default audio endpoint
+                    IntPtr device;
+                    hr = enumerator.GetDefaultAudioEndpoint((int)dataFlow, (int)deviceRole, out device);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogWarning("Failed to get default audio endpoint, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var mmDevice = Marshal.GetObjectForIUnknown(device) as IMMDevice;
+                    if (mmDevice == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDevice interface");
+                        return false;
+                    }
+
+                    // Activate the IAudioEndpointVolume interface
+                    IntPtr endpointVolumePtr;
+                    Guid endpointVolumeGuid = IID_IAudioEndpointVolume;
+                    hr = mmDevice.Activate(ref endpointVolumeGuid, 1, IntPtr.Zero, out endpointVolumePtr);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to activate IAudioEndpointVolume, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var endpointVolume = Marshal.GetObjectForIUnknown(endpointVolumePtr) as IAudioEndpointVolume;
+                    if (endpointVolume == null)
+                    {
+                        _logger.LogError("Failed to cast to IAudioEndpointVolume interface");
+                        return false;
+                    }
+
+                    // Set the volume
+                    Guid eventContext = Guid.Empty;
+                    hr = endpointVolume.SetMasterVolumeLevelScalar(volume, ref eventContext);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to set master volume, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    _logger.LogInformation("Successfully set default device volume to {Volume:P2}", volume);
+
+                    // Clean up COM objects
+                    if (endpointVolume != null) Marshal.ReleaseComObject(endpointVolume);
+                    if (mmDevice != null) Marshal.ReleaseComObject(mmDevice);
+                    if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error setting default device volume");
+                    return false;
+                }
+                finally
+                {
+                    CoUninitialize();
+                }
+            }
+        }
+
+        private bool MuteDefaultDeviceInternal(bool mute, AudioDataFlow dataFlow, AudioDeviceRole deviceRole)
+        {
+            lock (_lock)
+            {
+                _logger.LogDebug("Setting default device mute: {Mute} - DataFlow: {DataFlow}, Role: {DeviceRole}", mute, dataFlow, deviceRole);
+
+                try
+                {
+                    // Initialize COM
+                    CoInitialize(IntPtr.Zero);
+
+                    // Create the device enumerator
+                    IntPtr enumeratorPtr;
+                    Guid enumeratorClsid = CLSID_MMDeviceEnumerator;
+                    Guid enumeratorIid = IID_IMMDeviceEnumerator;
+                    int hr = CoCreateInstance(ref enumeratorClsid, IntPtr.Zero, 1, ref enumeratorIid, out enumeratorPtr);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to create IMMDeviceEnumerator, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var enumerator = Marshal.GetObjectForIUnknown(enumeratorPtr) as IMMDeviceEnumerator;
+                    if (enumerator == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDeviceEnumerator interface");
+                        return false;
+                    }
+
+                    // Get the default audio endpoint
+                    IntPtr device;
+                    hr = enumerator.GetDefaultAudioEndpoint((int)dataFlow, (int)deviceRole, out device);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogWarning("Failed to get default audio endpoint, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var mmDevice = Marshal.GetObjectForIUnknown(device) as IMMDevice;
+                    if (mmDevice == null)
+                    {
+                        _logger.LogError("Failed to cast to IMMDevice interface");
+                        return false;
+                    }
+
+                    // Activate the IAudioEndpointVolume interface
+                    IntPtr endpointVolumePtr;
+                    Guid endpointVolumeGuid = IID_IAudioEndpointVolume;
+                    hr = mmDevice.Activate(ref endpointVolumeGuid, 1, IntPtr.Zero, out endpointVolumePtr);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to activate IAudioEndpointVolume, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    var endpointVolume = Marshal.GetObjectForIUnknown(endpointVolumePtr) as IAudioEndpointVolume;
+                    if (endpointVolume == null)
+                    {
+                        _logger.LogError("Failed to cast to IAudioEndpointVolume interface");
+                        return false;
+                    }
+
+                    // Set the mute state
+                    Guid eventContext = Guid.Empty;
+                    hr = endpointVolume.SetMute(mute, ref eventContext);
+
+                    if (hr != 0)
+                    {
+                        _logger.LogError("Failed to set mute state, HRESULT: 0x{Hr:X8}", hr);
+                        return false;
+                    }
+
+                    _logger.LogInformation("Successfully set default device mute to {Mute}", mute);
+
+                    // Clean up COM objects
+                    if (endpointVolume != null) Marshal.ReleaseComObject(endpointVolume);
+                    if (mmDevice != null) Marshal.ReleaseComObject(mmDevice);
+                    if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error setting default device mute");
+                    return false;
+                }
+                finally
+                {
+                    CoUninitialize();
+                }
+            }
+        }
+
+        private string GetDeviceFriendlyName(IMMDevice device)
+        {
+            try
+            {
+                IntPtr propertyStorePtr;
+                int hr = device.OpenPropertyStore(0, out propertyStorePtr); // 0 = STGM_READ
+
+                if (hr != 0)
+                {
+                    return "Unknown Device";
+                }
+
+                var propertyStore = Marshal.GetObjectForIUnknown(propertyStorePtr) as IPropertyStore;
+                if (propertyStore == null)
+                {
+                    return "Unknown Device";
+                }
+
+                PropertyVariant value;
+                PropertyKey key = PKEY_Device_FriendlyName;
+                hr = propertyStore.GetValue(ref key, out value);
+
+                if (hr == 0 && value.vt == 31) // VT_LPWSTR
+                {
+                    string friendlyName = Marshal.PtrToStringUni(value.pwszVal);
+                    if (propertyStore != null) Marshal.ReleaseComObject(propertyStore);
+                    return friendlyName ?? "Unknown Device";
+                }
+
+                if (propertyStore != null) Marshal.ReleaseComObject(propertyStore);
+                return "Unknown Device";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error getting device friendly name");
+                return "Unknown Device";
+            }
+        }
+
+        private (float Volume, bool IsMuted) GetDeviceVolumeInfo(IMMDevice device)
+        {
+            try
+            {
+                // Activate the IAudioEndpointVolume interface
+                IntPtr endpointVolumePtr;
+                Guid endpointVolumeGuid = IID_IAudioEndpointVolume;
+                int hr = device.Activate(ref endpointVolumeGuid, 1, IntPtr.Zero, out endpointVolumePtr);
+
+                if (hr != 0)
+                {
+                    return (0.0f, false);
+                }
+
+                var endpointVolume = Marshal.GetObjectForIUnknown(endpointVolumePtr) as IAudioEndpointVolume;
+                if (endpointVolume == null)
+                {
+                    return (0.0f, false);
+                }
+
+                float volume;
+                bool muted;
+                endpointVolume.GetMasterVolumeLevelScalar(out volume);
+                endpointVolume.GetMute(out muted);
+
+                if (endpointVolume != null) Marshal.ReleaseComObject(endpointVolume);
+
+                return (volume, muted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error getting device volume info");
+                return (0.0f, false);
+            }
         }
 
         #endregion

@@ -20,7 +20,10 @@ namespace UniMixerServer.Models
         Mute,
         Unmute,
         GetStatus,
-        GetAllSessions
+        GetAllSessions,
+        SetDefaultDeviceVolume,
+        MuteDefaultDevice,
+        UnmuteDefaultDevice
     }
 
     public class StatusMessage
@@ -29,6 +32,7 @@ namespace UniMixerServer.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public int ActiveSessionCount { get; set; }
         public List<SessionStatus> Sessions { get; set; } = new List<SessionStatus>();
+        public DefaultAudioDevice? DefaultDevice { get; set; }
     }
 
     public class SessionStatus
@@ -39,5 +43,16 @@ namespace UniMixerServer.Models
         public float Volume { get; set; }
         public bool IsMuted { get; set; }
         public string State { get; set; } = string.Empty;
+    }
+
+    public class DefaultAudioDevice
+    {
+        public string DeviceId { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public string FriendlyName { get; set; } = string.Empty;
+        public float Volume { get; set; }
+        public bool IsMuted { get; set; }
+        public string DataFlow { get; set; } = string.Empty; // "Render" or "Capture"
+        public string DeviceRole { get; set; } = string.Empty; // "Console", "Multimedia", "Communications"
     }
 }

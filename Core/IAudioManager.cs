@@ -80,6 +80,32 @@ namespace UniMixerServer.Core
         Task<bool?> GetProcessMuteStateByNameAsync(string processName);
 
         /// <summary>
+        /// Gets information about the default audio device
+        /// </summary>
+        /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
+        /// <param name="deviceRole">Device role (Console/Multimedia/Communications)</param>
+        /// <returns>Default audio device information, or null if not found</returns>
+        Task<DefaultAudioDeviceInfo?> GetDefaultAudioDeviceAsync(AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console);
+
+        /// <summary>
+        /// Sets the volume for the default audio device
+        /// </summary>
+        /// <param name="volume">Volume level between 0.0 and 1.0</param>
+        /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
+        /// <param name="deviceRole">Device role (Console/Multimedia/Communications)</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> SetDefaultDeviceVolumeAsync(float volume, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console);
+
+        /// <summary>
+        /// Mutes or unmutes the default audio device
+        /// </summary>
+        /// <param name="mute">True to mute, false to unmute</param>
+        /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
+        /// <param name="deviceRole">Device role (Console/Multimedia/Communications)</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> MuteDefaultDeviceAsync(bool mute, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console);
+
+        /// <summary>
         /// Event fired when audio sessions change
         /// </summary>
         event EventHandler<AudioSessionChangedEventArgs>? AudioSessionChanged;
@@ -89,5 +115,16 @@ namespace UniMixerServer.Core
     {
         public List<AudioSession> Sessions { get; set; } = new List<AudioSession>();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    public class DefaultAudioDeviceInfo
+    {
+        public string DeviceId { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public string FriendlyName { get; set; } = string.Empty;
+        public float Volume { get; set; }
+        public bool IsMuted { get; set; }
+        public AudioDataFlow DataFlow { get; set; }
+        public AudioDeviceRole DeviceRole { get; set; }
     }
 }

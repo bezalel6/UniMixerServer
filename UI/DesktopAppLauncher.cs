@@ -18,19 +18,61 @@ namespace UniMixerServer.UI
     {
         public static void Launch()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            var launchLogger = new DesktopLogger("DesktopAppLauncher");
+            launchLogger.LogInformation("Entering Launch - creating dedicated UI thread");
 
-            try
+            // Create a dedicated thread for the WinForms application
+            var uiThread = new Thread(() =>
             {
-                using var form = new ModernAudioMixerForm();
-                Application.Run(form);
-            }
-            catch (Exception ex)
+                var uiThreadLogger = new DesktopLogger("UIThread");
+                uiThreadLogger.LogInformation("UI thread started - initializing WinForms application");
+
+                try
+                {
+                    // Initialize WinForms on the dedicated thread
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+
+                    uiThreadLogger.LogInformation("Creating ModernAudioMixerForm instance");
+
+                    using var form = new ModernAudioMixerForm();
+
+                    uiThreadLogger.LogInformation("Starting application message loop");
+                    Application.Run(form);
+
+                    uiThreadLogger.LogInformation("Application message loop ended");
+                }
+                catch (Exception ex)
+                {
+                    uiThreadLogger.LogError(ex, "Failed to start desktop application");
+
+                    // Show error on UI thread
+                    try
+                    {
+                        MessageBox.Show($"Failed to start desktop application: {ex.Message}",
+                            "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception msgEx)
+                    {
+                        uiThreadLogger.LogError(msgEx, "Failed to show error message");
+                        Console.WriteLine($"Critical error: {ex.Message}");
+                        Console.WriteLine($"Message box error: {msgEx.Message}");
+                    }
+                }
+            })
             {
-                MessageBox.Show($"Failed to start desktop application: {ex.Message}",
-                    "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+                Name = "UniMixer-UI-Thread",
+                IsBackground = false, // Keep application alive
+                ApartmentState = ApartmentState.STA // Required for WinForms
+            };
+
+            launchLogger.LogInformation("Starting dedicated UI thread");
+            uiThread.Start();
+
+            launchLogger.LogInformation("Waiting for UI thread to complete");
+            uiThread.Join(); // Wait for UI thread to complete
+
+            launchLogger.LogInformation("UI thread completed - application shutdown");
         }
     }
 
@@ -105,29 +147,92 @@ namespace UniMixerServer.UI
 
         public ModernAudioMixerForm()
         {
-            // CRITICAL FIX: Initialize UI first, THEN start background tasks
-            InitializeModernUI();
+            var constructorLogger = new DesktopLogger("ModernAudioMixerForm");
+            constructorLogger.LogInformation("Entering ModernAudioMixerForm constructor");
 
-            // Setup UI update timer AFTER UI is created
-            _uiUpdateTimer = new System.Windows.Forms.Timer { Interval = 2000 }; // Increased to 2 seconds
-            _uiUpdateTimer.Tick += OnUIUpdateTick;
+            try
+            {
+                constructorLogger.LogInformation("Initializing modern UI");
+                // CRITICAL FIX: Initialize UI first, THEN start background tasks
+                InitializeModernUI();
+                constructorLogger.LogInformation("Modern UI initialized successfully");
 
-            // CRITICAL FIX: Don't start background initialization in constructor
-            // Use Load event instead to ensure form is fully created
-            this.Load += OnFormLoad;
+                constructorLogger.LogInformation("Setting up UI update timer");
+                // Setup UI update timer AFTER UI is created
+                _uiUpdateTimer = new System.Windows.Forms.Timer { Interval = 2000 }; // Increased to 2 seconds
+                _uiUpdateTimer.Tick += OnUIUpdateTick;
+                constructorLogger.LogInformation("UI update timer configured successfully");
+
+                constructorLogger.LogInformation("Registering Load event handler");
+                // CRITICAL FIX: Don't start background initialization in constructor
+                // Use Load event instead to ensure form is fully created
+                this.Load += OnFormLoad;
+                constructorLogger.LogInformation("Load event handler registered successfully");
+
+                constructorLogger.LogInformation("ModernAudioMixerForm constructor completed successfully");
+            }
+            catch (Exception ex)
+            {
+                constructorLogger.LogError(ex, "Critical error in ModernAudioMixerForm constructor");
+
+                // Try to show a basic error state
+                try
+                {
+                    this.Text = "UniMixer Pro - Error";
+                    this.WindowState = FormWindowState.Normal;
+                    this.Size = new Size(800, 600);
+                    this.BackColor = Color.DarkRed;
+
+                    var errorLabel = new Label
+                    {
+                        Text = $"Initialization Error: {ex.Message}",
+                        ForeColor = Color.White,
+                        Font = new Font("Segoe UI", 12F),
+                        Dock = DockStyle.Fill,
+                        TextAlign = ContentAlignment.MiddleCenter
+                    };
+                    this.Controls.Add(errorLabel);
+                }
+                catch (Exception innerEx)
+                {
+                    constructorLogger.LogError(innerEx, "Failed to create error UI");
+                }
+
+                throw; // Re-throw to prevent partially initialized form
+            }
         }
 
         private void OnFormLoad(object sender, EventArgs e)
         {
-            // Start background initialization AFTER form is loaded and visible
-            _uiUpdateTimer.Start();
-            StartBackgroundInitializationSafe();
+            var formLoadLogger = new DesktopLogger("OnFormLoad");
+            formLoadLogger.LogInformation("Entering OnFormLoad - form has been loaded and is visible");
+
+            try
+            {
+                formLoadLogger.LogInformation("Starting UI update timer");
+                _uiUpdateTimer.Start();
+                formLoadLogger.LogInformation("UI update timer started successfully");
+
+                formLoadLogger.LogInformation("Starting background initialization");
+                StartBackgroundInitializationSafe();
+                formLoadLogger.LogInformation("Background initialization started successfully");
+            }
+            catch (Exception ex)
+            {
+                formLoadLogger.LogError(ex, "Error in OnFormLoad");
+                _statusLabel.Text = "❌ Form Load Error";
+                _statusLabel.ForeColor = AccentRed;
+            }
         }
 
         private void InitializeModernUI()
         {
+            var uiLogger = new DesktopLogger("InitializeModernUI");
+            uiLogger.LogInformation("Entering InitializeModernUI");
+
             try
             {
+                uiLogger.LogInformation("Setting up form properties");
                 // Form setup
                 Text = "UniMixer Pro";
                 Size = new Size(1600, 1000);
@@ -137,12 +242,21 @@ namespace UniMixerServer.UI
                 ForeColor = TextPrimary;
                 FormBorderStyle = FormBorderStyle.Sizable;
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+                uiLogger.LogInformation("Form properties set successfully");
 
+                uiLogger.LogInformation("Creating modern layout");
                 CreateModernLayout();
+                uiLogger.LogInformation("Modern layout created successfully");
+
+                uiLogger.LogInformation("Applying modern styling");
                 ApplyModernStyling();
+                uiLogger.LogInformation("Modern styling applied successfully");
+
+                uiLogger.LogInformation("InitializeModernUI completed successfully");
             }
             catch (Exception ex)
             {
+                uiLogger.LogError(ex, "Error initializing UI");
                 Console.WriteLine($"Error initializing UI: {ex.Message}");
                 // Don't throw - allow form to continue with basic setup
             }
@@ -697,6 +811,9 @@ namespace UniMixerServer.UI
         // Add the missing methods that are referenced but not implemented
         private void FilterSessionsRealTime(string searchText)
         {
+            var filterLogger = new DesktopLogger("FilterSessionsRealTime");
+            filterLogger.LogDebug($"Entering FilterSessionsRealTime - filtering with search text: '{searchText}'");
+
             if (_isDisposing) return;
 
             try
@@ -862,84 +979,177 @@ namespace UniMixerServer.UI
         // CRITICAL FIX: Safe background initialization with proper error handling
         private void StartBackgroundInitializationSafe()
         {
+            var startupLogger = new DesktopLogger("StartBackgroundInitializationSafe");
+            startupLogger.LogInformation("Entering StartBackgroundInitializationSafe - starting background initialization");
+
+            // CRITICAL FIX: Don't block the UI thread - use Task.Run with immediate return
             Task.Run(async () =>
             {
+                var taskLogger = new DesktopLogger("BackgroundTask");
+
                 try
                 {
+                    taskLogger.LogInformation("Background task started");
+
+                    // CRITICAL FIX: Show loading state immediately
+                    SafeUpdateUI(() =>
+                    {
+                        _statusLabel.Text = "⚡ Initializing...";
+                        _statusLabel.ForeColor = AccentOrange;
+                        _sessionCountLabel.Text = "Loading...";
+                    });
+
                     // CRITICAL FIX: Add delay to ensure form is fully loaded
-                    await Task.Delay(1000, _cancellationTokenSource.Token);
+                    taskLogger.LogInformation("Waiting for form stabilization");
+                    await Task.Delay(500, _cancellationTokenSource.Token); // Reduced delay
+                    taskLogger.LogInformation("Form stabilization delay completed");
 
                     if (_isDisposing || _cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        taskLogger.LogInformation("Cancellation requested, exiting initialization");
                         return;
+                    }
 
-                    var logger = new DesktopLogger("AudioManager");
-                    logger.LogInformation("Initializing AudioManager");
-
-                    // CRITICAL FIX: Initialize with shorter timeout and error handling
-                    _audioManager = new AudioManager(logger, enableDetailedLogging: false);
-
-                    // CRITICAL FIX: Very aggressive timeout for initial load
-                    using var initTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                    using var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(
-                        _cancellationTokenSource.Token, initTimeout.Token);
-
-                    List<AudioSession> initialSessions = null;
+                    taskLogger.LogInformation("Starting AudioManager initialization");
+                    SafeUpdateUI(() => _statusLabel.Text = "🔧 Creating AudioManager...");
 
                     try
                     {
-                        initialSessions = await _audioManager.GetAllAudioSessionsAsync();
+                        var audioManagerLogger = new DesktopLogger("AudioManager");
+                        audioManagerLogger.LogInformation("Creating AudioManager instance");
+
+                        // CRITICAL FIX: Create AudioManager with timeout
+                        var createManagerTask = Task.Run(() =>
+                        {
+                            audioManagerLogger.LogInformation("Instantiating AudioManager");
+                            return new AudioManager(audioManagerLogger, enableDetailedLogging: false);
+                        });
+
+                        using var createTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        using var createCombined = CancellationTokenSource.CreateLinkedTokenSource(
+                            _cancellationTokenSource.Token, createTimeout.Token);
+
+                        _audioManager = await createManagerTask.WaitAsync(createCombined.Token);
+                        audioManagerLogger.LogInformation("AudioManager created successfully");
                     }
                     catch (OperationCanceledException)
                     {
-                        logger.LogWarning("Initial session load timed out, continuing with empty list");
-                        initialSessions = new List<AudioSession>();
+                        taskLogger.LogWarning("AudioManager creation timed out");
+                        throw new TimeoutException("AudioManager creation timed out after 5 seconds");
+                    }
+
+                    if (_audioManager == null)
+                    {
+                        throw new InvalidOperationException("AudioManager is null after creation");
+                    }
+
+                    taskLogger.LogInformation("AudioManager created, loading initial sessions");
+                    SafeUpdateUI(() => _statusLabel.Text = "📊 Loading Sessions...");
+
+                    // CRITICAL FIX: Load sessions with aggressive timeout
+                    List<AudioSession> initialSessions = new List<AudioSession>();
+
+                    try
+                    {
+                        using var sessionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                        using var sessionCombined = CancellationTokenSource.CreateLinkedTokenSource(
+                            _cancellationTokenSource.Token, sessionTimeout.Token);
+
+                        var sessionsTask = _audioManager.GetAllAudioSessionsAsync();
+                        initialSessions = await sessionsTask.WaitAsync(sessionCombined.Token);
+
+                        taskLogger.LogInformation($"Loaded {initialSessions.Count} initial sessions");
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        taskLogger.LogWarning("Initial session load timed out, continuing with empty list");
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Failed to get initial sessions, continuing with empty list");
-                        initialSessions = new List<AudioSession>();
+                        taskLogger.LogError(ex, "Failed to get initial sessions, continuing with empty list");
                     }
 
-                    _currentSessions = initialSessions ?? new List<AudioSession>();
+                    _currentSessions = initialSessions;
                     _isInitialized = true;
+
+                    taskLogger.LogInformation("Updating UI with initialization results");
 
                     // CRITICAL FIX: Safe UI update with proper checks
                     SafeUpdateUI(() =>
                     {
-                        _statusLabel.Text = "🟢 Connected";
-                        _statusLabel.ForeColor = AccentGreen;
-                        _sessionCountLabel.Text = $"{_currentSessions.Count} sessions";
-                        UpdateSessionCardsEfficiently();
+                        try
+                        {
+                            _statusLabel.Text = "🟢 Ready";
+                            _statusLabel.ForeColor = AccentGreen;
+                            _sessionCountLabel.Text = $"{_currentSessions.Count} sessions loaded";
+
+                            if (_currentSessions.Count > 0)
+                            {
+                                UpdateSessionCardsEfficiently();
+                            }
+                        }
+                        catch (Exception uiEx)
+                        {
+                            taskLogger.LogError(uiEx, "Error updating UI after initialization");
+                        }
                     });
 
-                    logger.LogInformation("Desktop application initialized successfully");
-
-                    // Start background refresh with longer delay
-                    await Task.Delay(3000, _cancellationTokenSource.Token);
-                    await BackgroundRefreshLoopSafe();
+                    taskLogger.LogInformation("Desktop application initialized successfully");
                 }
                 catch (OperationCanceledException)
                 {
-                    // Normal shutdown, ignore
+                    taskLogger.LogInformation("Background initialization cancelled");
                 }
                 catch (Exception ex)
                 {
-                    var logger = new DesktopLogger("Initialization");
-                    logger.LogError(ex, "Failed to initialize AudioManager");
+                    taskLogger.LogError(ex, "Critical error in background initialization");
 
                     SafeUpdateUI(() =>
                     {
-                        _statusLabel.Text = "❌ Failed to initialize";
-                        _statusLabel.ForeColor = AccentRed;
-                        _sessionCountLabel.Text = "0 sessions";
+                        try
+                        {
+                            _statusLabel.Text = "❌ Initialization Failed";
+                            _statusLabel.ForeColor = AccentRed;
+                            _sessionCountLabel.Text = "Error - check logs";
+                        }
+                        catch (Exception uiEx)
+                        {
+                            taskLogger.LogError(uiEx, "Failed to update UI with error state");
+                        }
                     });
                 }
-            }, _cancellationTokenSource.Token);
+            }, _cancellationTokenSource.Token).ContinueWith(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    startupLogger.LogError(task.Exception, "Background initialization task faulted");
+                }
+                else if (task.IsCanceled)
+                {
+                    startupLogger.LogInformation("Background initialization task was cancelled");
+                }
+                else
+                {
+                    startupLogger.LogInformation("Background initialization task completed successfully");
+                }
+            }, TaskScheduler.Default);
+
+            startupLogger.LogInformation("Background initialization task started, returning from StartBackgroundInitializationSafe");
         }
 
         // CRITICAL FIX: Safer background refresh loop
         private async Task BackgroundRefreshLoopSafe()
         {
+            var backgroundRefreshLogger = new DesktopLogger("BackgroundRefreshLoopSafe");
+            backgroundRefreshLogger.LogInformation("Entering BackgroundRefreshLoopSafe - starting background refresh loop");
+
+            // CRITICAL FIX: Only start refresh loop if auto-refresh is enabled and form is properly initialized
+            if (!_isInitialized || _audioManager == null)
+            {
+                backgroundRefreshLogger.LogInformation("Skipping background refresh - not initialized or no audio manager");
+                return;
+            }
+
             while (!_cancellationTokenSource.Token.IsCancellationRequested && !_isDisposing)
             {
                 try
@@ -982,8 +1192,8 @@ namespace UniMixerServer.UI
                 }
                 catch (Exception ex)
                 {
-                    var logger = new DesktopLogger("BackgroundRefresh");
-                    logger.LogError(ex, "Error in background refresh");
+                    var refreshLogger = new DesktopLogger("BackgroundRefresh");
+                    refreshLogger.LogError(ex, "Error in background refresh");
                     _isRefreshing = false;
 
                     try
@@ -1000,6 +1210,9 @@ namespace UniMixerServer.UI
 
         private bool SessionsHaveChanged(List<AudioSession> newSessions)
         {
+            var logger = new DesktopLogger("SessionsHaveChanged");
+            logger.LogDebug($"Entering SessionsHaveChanged - comparing {_currentSessions.Count} current vs {newSessions.Count} new sessions");
+
             try
             {
                 // Create deduplicated session lists for comparison
@@ -1067,6 +1280,9 @@ namespace UniMixerServer.UI
 
         private void OnUIUpdateTick(object? sender, EventArgs e)
         {
+            var uiUpdateLogger = new DesktopLogger("OnUIUpdateTick");
+            uiUpdateLogger.LogDebug("Entering OnUIUpdateTick - periodic UI update");
+
             if (!_isInitialized) return;
 
             try
@@ -1082,86 +1298,176 @@ namespace UniMixerServer.UI
             }
             catch (Exception ex)
             {
-                var logger = new DesktopLogger("UIUpdate");
-                logger.LogError(ex, "Error updating UI");
+                var uiErrorLogger = new DesktopLogger("UIUpdate");
+                uiErrorLogger.LogError(ex, "Error updating UI");
             }
         }
 
         private void UpdateSessionCardsEfficiently()
         {
-            if (!this.InvokeRequired)
+            var updateCardsLogger = new DesktopLogger("UpdateSessionCardsEfficiently");
+            updateCardsLogger.LogDebug("Entering UpdateSessionCardsEfficiently - updating session cards UI");
+
+            try
             {
-                UpdateSessionCardsInternal();
+                updateCardsLogger.LogDebug($"InvokeRequired: {this.InvokeRequired}, IsDisposing: {_isDisposing}, IsDisposed: {IsDisposed}");
+
+                if (_isDisposing || IsDisposed)
+                {
+                    updateCardsLogger.LogDebug("Form is disposing/disposed, skipping UI update");
+                    return;
+                }
+
+                if (!this.InvokeRequired)
+                {
+                    updateCardsLogger.LogDebug("Calling UpdateSessionCardsInternal directly");
+                    UpdateSessionCardsInternal();
+                    updateCardsLogger.LogDebug("UpdateSessionCardsInternal completed successfully");
+                }
+                else
+                {
+                    updateCardsLogger.LogDebug("Using BeginInvoke for UpdateSessionCardsInternal");
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        updateCardsLogger.LogDebug("BeginInvoke callback executing");
+                        UpdateSessionCardsInternal();
+                        updateCardsLogger.LogDebug("BeginInvoke callback completed");
+                    }));
+                }
             }
-            else
+            catch (Exception ex)
             {
-                this.BeginInvoke(new Action(UpdateSessionCardsInternal));
+                updateCardsLogger.LogError(ex, "Error in UpdateSessionCardsEfficiently");
             }
         }
 
         private void UpdateSessionCardsInternal()
         {
+            var internalLogger = new DesktopLogger("UpdateSessionCardsInternal");
+            internalLogger.LogDebug("Entering UpdateSessionCardsInternal");
+
+            if (_isDisposing || IsDisposed || _sessionContainer == null)
+            {
+                internalLogger.LogDebug("Form disposing or session container null, exiting");
+                return;
+            }
+
+            internalLogger.LogDebug("Suspending layout");
             // Suspend layout to prevent flickering
             _sessionContainer.SuspendLayout();
 
             try
             {
+                internalLogger.LogDebug($"Starting with {_currentSessions.Count} current sessions");
+
                 // Filter sessions based on current selection
+                internalLogger.LogDebug("Filtering sessions");
                 var filteredSessions = FilterSessions(_currentSessions);
+                internalLogger.LogDebug($"Filtered to {filteredSessions.Count} sessions");
+
                 var sessionKeys = new HashSet<string>();
                 var existingKeys = new HashSet<string>(_sessionCards.Keys);
+                internalLogger.LogDebug($"Existing cards: {existingKeys.Count}");
 
                 // Update or create cards for current sessions
-                foreach (var session in filteredSessions.Take(20)) // Limit for performance
+                var sessionList = filteredSessions.Take(20).ToList(); // Limit for performance
+                internalLogger.LogDebug($"Processing {sessionList.Count} sessions (limited to 20)");
+
+                for (int i = 0; i < sessionList.Count; i++)
                 {
-                    var key = GetSessionKey(session);
+                    var session = sessionList[i];
+                    internalLogger.LogDebug($"Processing session {i + 1}/{sessionList.Count}: {session.ProcessName}");
 
-                    // Skip duplicate sessions (same process can have multiple sessions)
-                    if (sessionKeys.Contains(key))
-                        continue;
-
-                    sessionKeys.Add(key);
-
-                    if (_sessionCards.ContainsKey(key))
+                    try
                     {
-                        // Update existing card efficiently
-                        UpdateSessionCard(_sessionCards[key], session);
+                        var key = GetSessionKey(session);
+
+                        // Skip duplicate sessions (same process can have multiple sessions)
+                        if (sessionKeys.Contains(key))
+                        {
+                            internalLogger.LogDebug($"Skipping duplicate key: {key}");
+                            continue;
+                        }
+
+                        sessionKeys.Add(key);
+
+                        if (_sessionCards.ContainsKey(key))
+                        {
+                            internalLogger.LogDebug($"Updating existing card for: {session.ProcessName}");
+                            // Update existing card efficiently
+                            UpdateSessionCard(_sessionCards[key], session);
+                            internalLogger.LogDebug($"Updated card for: {session.ProcessName}");
+                        }
+                        else
+                        {
+                            internalLogger.LogDebug($"Creating new card for: {session.ProcessName}");
+                            // Create new card only if key doesn't exist
+                            var newCard = CreateSessionCard(session);
+                            internalLogger.LogDebug($"Created card for: {session.ProcessName}");
+
+                            _sessionCards[key] = newCard;
+                            _sessionContainer.Controls.Add(newCard);
+                            internalLogger.LogDebug($"Added card to container for: {session.ProcessName}");
+                        }
                     }
-                    else
+                    catch (Exception sessionEx)
                     {
-                        // Create new card only if key doesn't exist
-                        var newCard = CreateSessionCard(session);
-                        _sessionCards[key] = newCard;
-                        _sessionContainer.Controls.Add(newCard);
+                        internalLogger.LogError(sessionEx, $"Error processing session: {session.ProcessName}");
+                        // Continue with other sessions
                     }
                 }
 
+                internalLogger.LogDebug("Removing obsolete cards");
                 // Remove cards for sessions that no longer exist
                 var keysToRemove = existingKeys.Where(k => !sessionKeys.Contains(k)).ToList();
+                internalLogger.LogDebug($"Removing {keysToRemove.Count} obsolete cards");
+
                 foreach (var key in keysToRemove)
                 {
-                    if (_sessionCards.TryGetValue(key, out var cardToRemove))
+                    try
                     {
-                        _sessionContainer.Controls.Remove(cardToRemove);
-                        cardToRemove?.Dispose();
-                        _sessionCards.Remove(key);
+                        if (_sessionCards.TryGetValue(key, out var cardToRemove))
+                        {
+                            _sessionContainer.Controls.Remove(cardToRemove);
+                            cardToRemove?.Dispose();
+                            _sessionCards.Remove(key);
+                            internalLogger.LogDebug($"Removed card with key: {key}");
+                        }
+                    }
+                    catch (Exception removeEx)
+                    {
+                        internalLogger.LogError(removeEx, $"Error removing card with key: {key}");
                     }
                 }
 
-                // Ensure proper ordering (optional - can be expensive)
-                if (_sessionContainer.Controls.Count > 1)
-                {
-                    ReorderSessionCards(filteredSessions.Take(20).ToList());
-                }
+                // Skip reordering for now to prevent potential hangs
+                // if (_sessionContainer.Controls.Count > 1)
+                // {
+                //     internalLogger.LogDebug("Reordering session cards");
+                //     ReorderSessionCards(sessionList);
+                //     internalLogger.LogDebug("Reordering completed");
+                // }
+
+                internalLogger.LogDebug("UpdateSessionCardsInternal completed successfully");
             }
             catch (Exception ex)
             {
+                internalLogger.LogError(ex, "Error updating session cards");
                 Console.WriteLine($"Error updating session cards: {ex.Message}");
             }
             finally
             {
-                // Resume layout to apply changes
-                _sessionContainer.ResumeLayout(true);
+                try
+                {
+                    internalLogger.LogDebug("Resuming layout");
+                    // Resume layout to apply changes
+                    _sessionContainer.ResumeLayout(true);
+                    internalLogger.LogDebug("Layout resumed successfully");
+                }
+                catch (Exception layoutEx)
+                {
+                    internalLogger.LogError(layoutEx, "Error resuming layout");
+                }
             }
         }
 
@@ -1257,6 +1563,84 @@ namespace UniMixerServer.UI
 
         private Panel CreateSessionCard(AudioSession session)
         {
+            var cardLogger = new DesktopLogger("CreateSessionCard");
+            cardLogger.LogDebug($"Creating session card for: {session.ProcessName}");
+
+            try
+            {
+                cardLogger.LogDebug("Creating main card panel");
+                var card = new Panel
+                {
+                    Size = new Size(_sessionContainer.Width - 40, 80), // Simplified height
+                    BackColor = AccentBg,
+                    Margin = new Padding(0, 0, 0, 12),
+                    Padding = new Padding(16),
+                    Tag = session,
+                    Cursor = Cursors.Hand
+                };
+                cardLogger.LogDebug("Main card panel created");
+
+                // CRITICAL FIX: Simplified card with minimal controls
+                cardLogger.LogDebug("Creating process label");
+                var processLabel = new Label
+                {
+                    Text = $"🎵 {session.ProcessName}",
+                    Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                    ForeColor = TextPrimary,
+                    Location = new Point(0, 0),
+                    Size = new Size(300, 20),
+                    AutoEllipsis = true
+                };
+                cardLogger.LogDebug("Process label created");
+
+                cardLogger.LogDebug("Creating volume label");
+                var volumeLabel = new Label
+                {
+                    Text = session.IsMuted ? "🔇 MUTED" : $"🔊 {session.Volume:P0}",
+                    Font = new Font("Segoe UI", 10F),
+                    ForeColor = session.IsMuted ? AccentRed : GetVolumeColor(session.Volume),
+                    Location = new Point(0, 25),
+                    Size = new Size(200, 20),
+                    AutoEllipsis = true
+                };
+                cardLogger.LogDebug("Volume label created");
+
+                cardLogger.LogDebug("Creating PID label");
+                var pidLabel = new Label
+                {
+                    Text = $"PID: {session.ProcessId}",
+                    Font = new Font("Segoe UI", 9F),
+                    ForeColor = TextSecondary,
+                    Location = new Point(0, 50),
+                    Size = new Size(150, 16),
+                    AutoEllipsis = true
+                };
+                cardLogger.LogDebug("PID label created");
+
+                cardLogger.LogDebug("Adding controls to card");
+                card.Controls.AddRange(new Control[] { processLabel, volumeLabel, pidLabel });
+                cardLogger.LogDebug("Controls added to card");
+
+                cardLogger.LogDebug($"Session card created successfully for: {session.ProcessName}");
+                return card;
+            }
+            catch (Exception ex)
+            {
+                cardLogger.LogError(ex, $"Error creating session card for: {session.ProcessName}");
+
+                // Return a minimal error card
+                return new Panel
+                {
+                    Size = new Size(_sessionContainer.Width - 40, 40),
+                    BackColor = AccentRed,
+                    Controls = { new Label { Text = $"Error: {session.ProcessName}", ForeColor = Color.White, Dock = DockStyle.Fill } }
+                };
+            }
+        }
+
+        private Panel CreateSessionCardComplex(AudioSession session)
+        {
+            // This is the original complex implementation - keeping for reference
             var card = new Panel
             {
                 Size = new Size(_sessionContainer.Width - 40, 120), // Increased height for more controls
@@ -1589,6 +1973,9 @@ namespace UniMixerServer.UI
 
         private async Task RefreshSessionsAsync()
         {
+            var refreshSessionsLogger = new DesktopLogger("RefreshSessionsAsync");
+            refreshSessionsLogger.LogInformation("Entering RefreshSessionsAsync - manually refreshing audio sessions");
+
             if (_audioManager == null || _isRefreshing) return;
 
             try

@@ -249,6 +249,9 @@ namespace UniMixerServer.Services
                         sessions.Count - validSessions.Count);
                 }
 
+                // Get default audio device information
+                var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
+
                 var statusMessage = new StatusMessage
                 {
                     DeviceId = _config.DeviceId,
@@ -262,7 +265,8 @@ namespace UniMixerServer.Services
                         Volume = Math.Max(0.0f, Math.Min(1.0f, s.Volume)),
                         IsMuted = s.IsMuted,
                         State = ((AudioSessionState)s.SessionState).ToString()
-                    }).ToList()
+                    }).ToList(),
+                    DefaultDevice = defaultDevice
                 };
 
                 // Broadcast to all connected communication handlers
@@ -271,12 +275,63 @@ namespace UniMixerServer.Services
 
                 await Task.WhenAll(broadcastTasks);
 
-                _logger.LogDebug("Status sent to {HandlerCount} handlers, {SessionCount} sessions",
-                    connectedHandlers.Count, validSessions.Count);
+                // Log detailed default device information
+                if (defaultDevice != null)
+                {
+                    _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
+                        "Default Audio Device Details:\n" +
+                        "  Device ID: {DeviceId}\n" +
+                        "  Device Name: {DeviceName}\n" +
+                        "  Friendly Name: {FriendlyName}\n" +
+                        "  Volume: {Volume:P1} ({VolumeRaw:F3})\n" +
+                        "  Is Muted: {IsMuted}\n" +
+                        "  Data Flow: {DataFlow}\n" +
+                        "  Device Role: {DeviceRole}",
+                        connectedHandlers.Count, validSessions.Count,
+                        defaultDevice.DeviceId,
+                        defaultDevice.DeviceName,
+                        defaultDevice.FriendlyName,
+                        defaultDevice.Volume, defaultDevice.Volume,
+                        defaultDevice.IsMuted,
+                        defaultDevice.DataFlow,
+                        defaultDevice.DeviceRole);
+                }
+                else
+                {
+                    _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
+                        "Default Audio Device: None (No default device found)",
+                        connectedHandlers.Count, validSessions.Count);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error broadcasting status");
+            }
+        }
+
+        private async Task<DefaultAudioDevice?> GetDefaultAudioDeviceInfoAsync()
+        {
+            try
+            {
+                var deviceInfo = await _audioManager.GetDefaultAudioDeviceAsync();
+                if (deviceInfo == null)
+                    return null;
+
+                return new DefaultAudioDevice
+                {
+                    DeviceId = deviceInfo.DeviceId,
+                    DeviceName = deviceInfo.DeviceName,
+                    FriendlyName = deviceInfo.FriendlyName,
+                    Volume = deviceInfo.Volume,
+                    IsMuted = deviceInfo.IsMuted,
+                    DataFlow = deviceInfo.DataFlow.ToString(),
+                    DeviceRole = deviceInfo.DeviceRole.ToString()
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting default audio device info");
+                return null;
             }
         }
 
@@ -394,15 +449,47 @@ namespace UniMixerServer.Services
                         break;
 
                     case AudioCommandType.GetStatus:
-                        var config = CreateAudioDiscoveryConfig();
-                        var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
-                        _logger.LogInformation("Retrieved {SessionCount} audio sessions", sessions.Count);
+                        await BroadcastStatusAsync();
                         break;
 
                     case AudioCommandType.GetAllSessions:
-                        var allSessionsConfig = CreateAudioDiscoveryConfig();
-                        var allSessions = await _audioManager.GetAllAudioSessionsAsync(allSessionsConfig);
-                        _logger.LogInformation("Retrieved {SessionCount} audio sessions", allSessions.Count);
+                        await BroadcastStatusAsync();
+                        break;
+
+                    case AudioCommandType.SetDefaultDeviceVolume:
+                        var setVolumeSuccess = await _audioManager.SetDefaultDeviceVolumeAsync(command.Volume);
+                        if (setVolumeSuccess)
+                        {
+                            _logger.LogInformation("Default device volume set to {Volume:P0}", command.Volume);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to set default device volume");
+                        }
+                        break;
+
+                    case AudioCommandType.MuteDefaultDevice:
+                        var muteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(true);
+                        if (muteDefaultSuccess)
+                        {
+                            _logger.LogInformation("Default device muted");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to mute default device");
+                        }
+                        break;
+
+                    case AudioCommandType.UnmuteDefaultDevice:
+                        var unmuteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(false);
+                        if (unmuteDefaultSuccess)
+                        {
+                            _logger.LogInformation("Default device unmuted");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to unmute default device");
+                        }
                         break;
 
                     default:
