@@ -1,0 +1,5 @@
+---
+description: 
+globs: *.c,*.cpp,*.h,*.hpp
+alwaysApply: false
+---

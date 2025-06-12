@@ -11,10 +11,8 @@ using Microsoft.Extensions.Logging;
 using UniMixerServer.Configuration;
 using UniMixerServer.Models;
 
-namespace UniMixerServer.Communication
-{
-    public class SerialHandler : ICommunicationHandler, IDisposable
-    {
+namespace UniMixerServer.Communication {
+    public class SerialHandler : ICommunicationHandler, IDisposable {
         private readonly ILogger<SerialHandler> _logger;
         private readonly SerialConfig _config;
         private SerialPort? _serialPort;
@@ -28,20 +26,16 @@ namespace UniMixerServer.Communication
         public event EventHandler<CommandReceivedEventArgs>? CommandReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
-        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config)
-        {
+        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config) {
             _logger = logger;
             _config = config;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
+        public Task StartAsync(CancellationToken cancellationToken = default) {
+            try {
                 _logger.LogInformation("Starting Serial handler on port {Port}...", _config.PortName);
 
-                _serialPort = new SerialPort
-                {
+                _serialPort = new SerialPort {
                     PortName = _config.PortName,
                     BaudRate = _config.BaudRate,
                     DataBits = _config.DataBits,
@@ -60,8 +54,7 @@ namespace UniMixerServer.Communication
                 _logger.LogInformation("Serial handler started successfully on {Port}", _config.PortName);
 
                 // Notify connection status change
-                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-                {
+                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                     IsConnected = true,
                     HandlerName = Name,
                     Message = $"Connected to serial port {_config.PortName}"
@@ -69,13 +62,11 @@ namespace UniMixerServer.Communication
 
                 return Task.CompletedTask;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Failed to start Serial handler");
 
                 // Notify connection status change
-                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-                {
+                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                     IsConnected = false,
                     HandlerName = Name,
                     Message = $"Failed to connect to serial port: {ex.Message}"
@@ -85,24 +76,20 @@ namespace UniMixerServer.Communication
             }
         }
 
-        public async Task StopAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
+        public async Task StopAsync(CancellationToken cancellationToken = default) {
+            try {
                 _logger.LogInformation("Stopping Serial handler...");
 
                 // Cancel the read task
                 _cancellationTokenSource?.Cancel();
 
                 // Wait for read task to complete
-                if (_readTask != null)
-                {
+                if (_readTask != null) {
                     await _readTask.ConfigureAwait(false);
                 }
 
                 // Close the serial port
-                if (_serialPort?.IsOpen == true)
-                {
+                if (_serialPort?.IsOpen == true) {
                     _serialPort.Close();
                 }
 
@@ -115,53 +102,52 @@ namespace UniMixerServer.Communication
                 _logger.LogInformation("Serial handler stopped successfully");
 
                 // Notify connection status change
-                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-                {
+                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                     IsConnected = false,
                     HandlerName = Name,
                     Message = "Disconnected from serial port"
                 });
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error stopping Serial handler");
                 throw;
             }
         }
 
-        public async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default)
-        {
-            if (!IsConnected)
-            {
+        public async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default) {
+            if (!IsConnected) {
                 _logger.LogWarning("Cannot send status - Serial port not connected");
                 return;
             }
 
-            try
-            {
+            try {
                 // Create a clean JSON structure that matches what the ESP32 expects
                 var sessionsList = new List<object>();
-                foreach (var session in status.Sessions)
-                {
-                    var sessionDict = new Dictionary<string, object>
-                    {
+                foreach (var session in status.Sessions) {
+                    var sessionDict = new Dictionary<string, object> {
                         ["processName"] = session.ProcessName ?? string.Empty,
-                        // ["processId"] = session.ProcessId,
                         ["volume"] = session.Volume,
                         ["isMuted"] = session.IsMuted,
-                        ["state"] = session.State ?? string.Empty
+                        ["state"] = session.State ?? string.Empty,
                     };
 
                     sessionsList.Add(sessionDict);
                 }
 
-                var statusData = new Dictionary<string, object>
-                {
-                    ["sessions"] = sessionsList
+                var statusData = new Dictionary<string, object> {
+                    ["sessions"] = sessionsList,
                 };
-
-                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions
-                {
+                if (status.DefaultDevice != null) {
+                    var defaultDeviceData = new Dictionary<string, object> {
+                        ["friendlyName"] = status.DefaultDevice.FriendlyName ?? string.Empty,
+                        ["volume"] = status.DefaultDevice.Volume,
+                        ["isMuted"] = status.DefaultDevice.IsMuted,
+                        ["dataFlow"] = status.DefaultDevice.DataFlow ?? string.Empty,
+                        ["deviceRole"] = status.DefaultDevice.DeviceRole ?? string.Empty
+                    };
+                    statusData.Add("defaultDevice", defaultDeviceData);
+                }
+                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions {
                     // WriteIndented = false,
                     // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
@@ -173,22 +159,17 @@ namespace UniMixerServer.Communication
                 _logger.LogDebug(json);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via serial port");
             }
         }
 
-        private async Task ReadSerialDataAsync(CancellationToken cancellationToken)
-        {
+        private async Task ReadSerialDataAsync(CancellationToken cancellationToken) {
             var buffer = new StringBuilder();
 
-            while (!cancellationToken.IsCancellationRequested && IsConnected)
-            {
-                try
-                {
-                    if (_serialPort!.BytesToRead > 0)
-                    {
+            while (!cancellationToken.IsCancellationRequested && IsConnected) {
+                try {
+                    if (_serialPort!.BytesToRead > 0) {
                         var data = _serialPort.ReadExisting();
                         buffer.Append(data);
 
@@ -197,11 +178,9 @@ namespace UniMixerServer.Communication
                         var lines = content.Split('\n');
 
                         // Process all complete lines (all but the last one)
-                        for (int i = 0; i < lines.Length - 1; i++)
-                        {
+                        for (int i = 0; i < lines.Length - 1; i++) {
                             var line = lines[i].Trim('\r', '\n');
-                            if (!string.IsNullOrWhiteSpace(line))
-                            {
+                            if (!string.IsNullOrWhiteSpace(line)) {
                                 // _logger.LogDebug("Processing message: {Length} chars", line.Length);
                                 _logger.LogDebug(line);
                                 await ProcessSerialMessage(line);
@@ -215,55 +194,44 @@ namespace UniMixerServer.Communication
 
                     await Task.Delay(10, cancellationToken); // Small delay to prevent busy waiting
                 }
-                catch (OperationCanceledException)
-                {
+                catch (OperationCanceledException) {
                     break;
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _logger.LogError(ex, "Error reading from serial port");
 
-                    if (_config.EnableAutoReconnect)
-                    {
+                    if (_config.EnableAutoReconnect) {
                         await Task.Delay(_config.ReconnectDelayMs, cancellationToken);
                         await TryReconnectAsync();
                     }
-                    else
-                    {
+                    else {
                         break;
                     }
                 }
             }
         }
 
-        private async Task ProcessSerialMessage(string message)
-        {
-            try
-            {
+        private async Task ProcessSerialMessage(string message) {
+            try {
                 // All messages from ESP32 are commands - no prefix needed
-                var command = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions
-                {
+                var command = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                     Converters = { new JsonStringEnumConverter() }
                 });
 
-                if (command != null)
-                {
+                if (command != null) {
                     _logger.LogInformation("Command: {CommandType} from ESP32", command.CommandType);
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs
-                    {
+                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
                         Command = command,
                         Source = "Serial",
                         Timestamp = DateTime.UtcNow
                     });
                 }
-                else
-                {
+                else {
                     _logger.LogWarning("Failed to parse command from {Length} char message", message.Length);
                 }
             }
-            catch (Exception)
-            {
+            catch (Exception) {
                 _logger.LogInformation(message);
                 // _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
             }
@@ -271,20 +239,16 @@ namespace UniMixerServer.Communication
             await Task.CompletedTask;
         }
 
-        private async Task TryReconnectAsync()
-        {
-            try
-            {
+        private async Task TryReconnectAsync() {
+            try {
                 _logger.LogInformation("Attempting to reconnect to serial port {Port}...", _config.PortName);
 
-                if (_serialPort?.IsOpen == true)
-                {
+                if (_serialPort?.IsOpen == true) {
                     _serialPort.Close();
                 }
 
                 _serialPort?.Dispose();
-                _serialPort = new SerialPort
-                {
+                _serialPort = new SerialPort {
                     PortName = _config.PortName,
                     BaudRate = _config.BaudRate,
                     DataBits = _config.DataBits,
@@ -300,20 +264,17 @@ namespace UniMixerServer.Communication
                 _logger.LogInformation("Successfully reconnected to serial port {Port}", _config.PortName);
 
                 // Notify connection status change
-                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-                {
+                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                     IsConnected = true,
                     HandlerName = Name,
                     Message = $"Reconnected to serial port {_config.PortName}"
                 });
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Failed to reconnect to serial port");
 
                 // Notify connection status change
-                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-                {
+                ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                     IsConnected = false,
                     HandlerName = Name,
                     Message = $"Failed to reconnect: {ex.Message}"
@@ -323,10 +284,8 @@ namespace UniMixerServer.Communication
             await Task.CompletedTask;
         }
 
-        private static Parity ParseParity(string parity)
-        {
-            return parity.ToUpperInvariant() switch
-            {
+        private static Parity ParseParity(string parity) {
+            return parity.ToUpperInvariant() switch {
                 "NONE" => Parity.None,
                 "ODD" => Parity.Odd,
                 "EVEN" => Parity.Even,
@@ -336,10 +295,8 @@ namespace UniMixerServer.Communication
             };
         }
 
-        private static StopBits ParseStopBits(string stopBits)
-        {
-            return stopBits.ToUpperInvariant() switch
-            {
+        private static StopBits ParseStopBits(string stopBits) {
+            return stopBits.ToUpperInvariant() switch {
                 "NONE" => StopBits.None,
                 "ONE" => StopBits.One,
                 "TWO" => StopBits.Two,
@@ -348,18 +305,14 @@ namespace UniMixerServer.Communication
             };
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
+        protected virtual void Dispose(bool disposing) {
+            if (!_disposed) {
+                if (disposing) {
                     _cancellationTokenSource?.Cancel();
                     _readTask?.Wait(1000);
                     _serialPort?.Dispose();

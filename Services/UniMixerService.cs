@@ -12,10 +12,8 @@ using UniMixerServer.Configuration;
 using UniMixerServer.Core;
 using UniMixerServer.Models;
 
-namespace UniMixerServer.Services
-{
-    public class UniMixerService : BackgroundService
-    {
+namespace UniMixerServer.Services {
+    public class UniMixerService : BackgroundService {
         private readonly ILogger<UniMixerService> _logger;
         private readonly AppConfig _config;
         private readonly IAudioManager _audioManager;
@@ -28,20 +26,17 @@ namespace UniMixerServer.Services
             ILogger<UniMixerService> logger,
             IOptions<AppConfig> config,
             IAudioManager audioManager,
-            IEnumerable<ICommunicationHandler> communicationHandlers)
-        {
+            IEnumerable<ICommunicationHandler> communicationHandlers) {
             _logger = logger;
             _config = config.Value;
             _audioManager = audioManager;
             _communicationHandlers = communicationHandlers.ToList();
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
             _logger.LogInformation("UniMixer Service starting...");
 
-            try
-            {
+            try {
                 // Start communication handlers
                 await StartCommunicationHandlersAsync(stoppingToken);
 
@@ -53,30 +48,29 @@ namespace UniMixerServer.Services
 
                 _logger.LogInformation("UniMixer Service started successfully");
 
+                // Send initial status broadcast after successful initialization
+                _logger.LogInformation("Sending initial status broadcast...");
+                await BroadcastStatusAsync();
+
                 // Keep the service running until cancellation is requested
                 await Task.Delay(Timeout.Infinite, stoppingToken);
             }
-            catch (OperationCanceledException)
-            {
+            catch (OperationCanceledException) {
                 _logger.LogInformation("UniMixer Service stopping...");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error in UniMixer Service");
                 throw;
             }
-            finally
-            {
+            finally {
                 await StopAsync(stoppingToken);
             }
         }
 
-        public override async Task StopAsync(CancellationToken cancellationToken)
-        {
+        public override async Task StopAsync(CancellationToken cancellationToken) {
             _logger.LogInformation("UniMixer Service stopping...");
 
-            try
-            {
+            try {
                 // Stop timers
                 _statusTimer?.Dispose();
                 _audioRefreshTimer?.Dispose();
@@ -86,65 +80,52 @@ namespace UniMixerServer.Services
 
                 _logger.LogInformation("UniMixer Service stopped successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error stopping UniMixer Service");
             }
 
             await base.StopAsync(cancellationToken);
         }
 
-        private async Task StartCommunicationHandlersAsync(CancellationToken cancellationToken)
-        {
+        private async Task StartCommunicationHandlersAsync(CancellationToken cancellationToken) {
             var startTasks = new List<Task>();
 
-            foreach (var handler in _communicationHandlers)
-            {
-                try
-                {
+            foreach (var handler in _communicationHandlers) {
+                try {
                     _logger.LogInformation("Starting communication handler: {HandlerName}", handler.Name);
                     startTasks.Add(handler.StartAsync(cancellationToken));
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _logger.LogError(ex, "Failed to start communication handler: {HandlerName}", handler.Name);
                 }
             }
 
-            if (startTasks.Any())
-            {
+            if (startTasks.Any()) {
                 await Task.WhenAll(startTasks);
             }
         }
 
-        private async Task StopCommunicationHandlersAsync(CancellationToken cancellationToken)
-        {
+        private async Task StopCommunicationHandlersAsync(CancellationToken cancellationToken) {
             var stopTasks = new List<Task>();
 
-            foreach (var handler in _communicationHandlers)
-            {
-                try
-                {
+            foreach (var handler in _communicationHandlers) {
+                try {
                     _logger.LogInformation("Stopping communication handler: {HandlerName}", handler.Name);
                     stopTasks.Add(handler.StopAsync(cancellationToken));
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _logger.LogError(ex, "Error stopping communication handler: {HandlerName}", handler.Name);
                 }
             }
 
-            if (stopTasks.Any())
-            {
+            if (stopTasks.Any()) {
                 await Task.WhenAll(stopTasks);
             }
         }
 
-        private void SetupEventHandlers()
-        {
+        private void SetupEventHandlers() {
             // Subscribe to command events from all communication handlers
-            foreach (var handler in _communicationHandlers)
-            {
+            foreach (var handler in _communicationHandlers) {
                 handler.CommandReceived += OnCommandReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
@@ -153,8 +134,7 @@ namespace UniMixerServer.Services
             _audioManager.AudioSessionChanged += OnAudioSessionChanged;
         }
 
-        private void StartTimers()
-        {
+        private void StartTimers() {
             // Status broadcast timer
             _statusTimer = new Timer(
                 OnStatusTimerElapsed,
@@ -173,47 +153,38 @@ namespace UniMixerServer.Services
                 _config.StatusBroadcastIntervalMs, _config.AudioSessionRefreshIntervalMs);
         }
 
-        private async void OnStatusTimerElapsed(object? state)
-        {
-            try
-            {
+        private async void OnStatusTimerElapsed(object? state) {
+            try {
                 await BroadcastStatusAsync();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error during status broadcast");
             }
         }
 
-        private async void OnAudioRefreshTimerElapsed(object? state)
-        {
-            try
-            {
+        private async void OnAudioRefreshTimerElapsed(object? state) {
+            try {
                 var config = CreateAudioDiscoveryConfig();
                 var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
 
                 // Check if sessions have changed
-                if (HasSessionsChanged(sessions))
-                {
+                if (HasSessionsChanged(sessions)) {
                     _lastKnownSessions = sessions;
                     _logger.LogDebug("Audio sessions changed, triggering status update");
                     await BroadcastStatusAsync();
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error during audio session refresh");
             }
         }
 
-        private bool HasSessionsChanged(List<UniMixerServer.Core.AudioSession> newSessions)
-        {
+        private bool HasSessionsChanged(List<UniMixerServer.Core.AudioSession> newSessions) {
             if (_lastKnownSessions.Count != newSessions.Count)
                 return true;
 
             // Compare each session
-            foreach (var newSession in newSessions)
-            {
+            foreach (var newSession in newSessions) {
                 var oldSession = _lastKnownSessions.FirstOrDefault(s => s.ProcessName == newSession.ProcessName);
                 if (oldSession == null)
                     return true;
@@ -227,14 +198,11 @@ namespace UniMixerServer.Services
             return false;
         }
 
-        private async Task BroadcastStatusAsync()
-        {
-            try
-            {
+        private async Task BroadcastStatusAsync() {
+            try {
                 var config = CreateAudioDiscoveryConfig();
                 var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
-                foreach (var session in sessions)
-                {
+                foreach (var session in sessions) {
                     _logger.LogDebug("Session: {Session}", session.ToString());
                 }
 
@@ -243,8 +211,7 @@ namespace UniMixerServer.Services
                     s.ProcessId > 0 && !string.IsNullOrWhiteSpace(s.ProcessName)
                 ).ToList();
 
-                if (validSessions.Count != sessions.Count)
-                {
+                if (validSessions.Count != sessions.Count) {
                     _logger.LogWarning("Filtered out {FilteredCount} invalid sessions",
                         sessions.Count - validSessions.Count);
                 }
@@ -252,13 +219,11 @@ namespace UniMixerServer.Services
                 // Get default audio device information
                 var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
-                var statusMessage = new StatusMessage
-                {
+                var statusMessage = new StatusMessage {
                     DeviceId = _config.DeviceId,
                     Timestamp = DateTime.UtcNow,
                     ActiveSessionCount = validSessions.Count,
-                    Sessions = validSessions.Select(s => new SessionStatus
-                    {
+                    Sessions = validSessions.Select(s => new SessionStatus {
                         ProcessId = s.ProcessId,
                         ProcessName = s.ProcessName ?? string.Empty,
                         DisplayName = s.DisplayName ?? string.Empty,
@@ -275,52 +240,43 @@ namespace UniMixerServer.Services
 
                 await Task.WhenAll(broadcastTasks);
 
-                // Log detailed default device information
-                if (defaultDevice != null)
-                {
-                    _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
-                        "Default Audio Device Details:\n" +
-                        "  Device ID: {DeviceId}\n" +
-                        "  Device Name: {DeviceName}\n" +
-                        "  Friendly Name: {FriendlyName}\n" +
-                        "  Volume: {Volume:P1} ({VolumeRaw:F3})\n" +
-                        "  Is Muted: {IsMuted}\n" +
-                        "  Data Flow: {DataFlow}\n" +
-                        "  Device Role: {DeviceRole}",
-                        connectedHandlers.Count, validSessions.Count,
-                        defaultDevice.DeviceId,
-                        defaultDevice.DeviceName,
-                        defaultDevice.FriendlyName,
-                        defaultDevice.Volume, defaultDevice.Volume,
-                        defaultDevice.IsMuted,
-                        defaultDevice.DataFlow,
-                        defaultDevice.DeviceRole);
+                if (defaultDevice != null) {
+                    // _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
+                    //     "Default Audio Device Details:\n" +
+                    //     "  Device ID: {DeviceId}\n" +
+                    //     "  Device Name: {DeviceName}\n" +
+                    //     "  Friendly Name: {FriendlyName}\n" +
+                    //     "  Volume: {Volume:P1} ({VolumeRaw:F3})\n" +
+                    //     "  Is Muted: {IsMuted}\n" +
+                    //     "  Data Flow: {DataFlow}\n" +
+                    //     "  Device Role: {DeviceRole}",
+                    //     connectedHandlers.Count, validSessions.Count,
+                    //     defaultDevice.DeviceId,
+                    //     defaultDevice.DeviceName,
+                    //     defaultDevice.FriendlyName,
+                    //     defaultDevice.Volume, defaultDevice.Volume,
+                    //     defaultDevice.IsMuted,
+                    //     defaultDevice.DataFlow,
+                    //     defaultDevice.DeviceRole);
                 }
-                else
-                {
+                else {
                     _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
                         "Default Audio Device: None (No default device found)",
                         connectedHandlers.Count, validSessions.Count);
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error broadcasting status");
             }
         }
 
-        private async Task<DefaultAudioDevice?> GetDefaultAudioDeviceInfoAsync()
-        {
-            try
-            {
+        private async Task<DefaultAudioDevice?> GetDefaultAudioDeviceInfoAsync() {
+            try {
                 var deviceInfo = await _audioManager.GetDefaultAudioDeviceAsync();
                 if (deviceInfo == null)
                     return null;
 
-                return new DefaultAudioDevice
-                {
-                    DeviceId = deviceInfo.DeviceId,
-                    DeviceName = deviceInfo.DeviceName,
+                return new DefaultAudioDevice {
                     FriendlyName = deviceInfo.FriendlyName,
                     Volume = deviceInfo.Volume,
                     IsMuted = deviceInfo.IsMuted,
@@ -328,17 +284,14 @@ namespace UniMixerServer.Services
                     DeviceRole = deviceInfo.DeviceRole.ToString()
                 };
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error getting default audio device info");
                 return null;
             }
         }
 
-        private UniMixerServer.Core.AudioDiscoveryConfig CreateAudioDiscoveryConfig()
-        {
-            return new UniMixerServer.Core.AudioDiscoveryConfig
-            {
+        private UniMixerServer.Core.AudioDiscoveryConfig CreateAudioDiscoveryConfig() {
+            return new UniMixerServer.Core.AudioDiscoveryConfig {
                 IncludeAllDevices = _config.Audio.IncludeAllDevices,
                 IncludeCaptureDevices = _config.Audio.IncludeCaptureDevices,
                 DataFlow = ParseDataFlow(_config.Audio.DataFlow),
@@ -349,10 +302,8 @@ namespace UniMixerServer.Services
             };
         }
 
-        private UniMixerServer.Core.AudioDataFlow ParseDataFlow(string dataFlow)
-        {
-            return dataFlow?.ToLowerInvariant() switch
-            {
+        private UniMixerServer.Core.AudioDataFlow ParseDataFlow(string dataFlow) {
+            return dataFlow?.ToLowerInvariant() switch {
                 "render" => UniMixerServer.Core.AudioDataFlow.Render,
                 "capture" => UniMixerServer.Core.AudioDataFlow.Capture,
                 "all" => UniMixerServer.Core.AudioDataFlow.All,
@@ -360,10 +311,8 @@ namespace UniMixerServer.Services
             };
         }
 
-        private UniMixerServer.Core.AudioDeviceRole ParseDeviceRole(string deviceRole)
-        {
-            return deviceRole?.ToLowerInvariant() switch
-            {
+        private UniMixerServer.Core.AudioDeviceRole ParseDeviceRole(string deviceRole) {
+            return deviceRole?.ToLowerInvariant() switch {
                 "console" => UniMixerServer.Core.AudioDeviceRole.Console,
                 "multimedia" => UniMixerServer.Core.AudioDeviceRole.Multimedia,
                 "communications" => UniMixerServer.Core.AudioDeviceRole.Communications,
@@ -371,80 +320,112 @@ namespace UniMixerServer.Services
             };
         }
 
-        private async void OnCommandReceived(object? sender, CommandReceivedEventArgs e)
-        {
-            try
-            {
+        private async void OnCommandReceived(object? sender, CommandReceivedEventArgs e) {
+            try {
                 _logger.LogInformation("Processing command {CommandType} from {Source}",
                     e.Command.CommandType, e.Source);
 
                 await ProcessCommandAsync(e.Command);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error processing command");
             }
         }
 
-        private async Task ProcessCommandAsync(AudioCommand command)
-        {
-            try
-            {
-                switch (command.CommandType)
-                {
+        private async Task ProcessCommandAsync(AudioCommand command) {
+            try {
+                switch (command.CommandType) {
                     case AudioCommandType.SetVolume:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName))
-                        {
+                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
                             _logger.LogWarning("Process name is required for SetVolume command");
                             break;
                         }
 
                         var volumeSuccess = await _audioManager.SetProcessVolumeByNameAsync(command.ProcessName, command.Volume);
-                        if (volumeSuccess)
-                        {
+                        if (volumeSuccess) {
                             _logger.LogInformation("Volume set to {Volume:P0} for process {ProcessName}",
                                 command.Volume, command.ProcessName);
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to set volume for process {ProcessName} (no active audio session found)",
                                 command.ProcessName);
                         }
                         break;
 
                     case AudioCommandType.Mute:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName))
-                        {
+                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
                             _logger.LogWarning("Process name is required for Mute command");
                             break;
                         }
 
                         var muteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, true);
-                        if (muteSuccess)
-                        {
+                        if (muteSuccess) {
                             _logger.LogInformation("Process {ProcessName} muted", command.ProcessName);
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to mute process {ProcessName}", command.ProcessName);
                         }
                         break;
 
                     case AudioCommandType.Unmute:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName))
-                        {
+                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
                             _logger.LogWarning("Process name is required for Unmute command");
                             break;
                         }
 
                         var unmuteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, false);
-                        if (unmuteSuccess)
-                        {
+                        if (unmuteSuccess) {
                             _logger.LogInformation("Process {ProcessName} unmuted", command.ProcessName);
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to unmute process {ProcessName}", command.ProcessName);
+                        }
+                        break;
+
+                    case AudioCommandType.SetDeviceVolume:
+                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
+                            _logger.LogWarning("Device friendly name is required for SetDeviceVolume command");
+                            break;
+                        }
+
+                        var deviceVolumeSuccess = await _audioManager.SetDeviceVolumeByFriendlyNameAsync(command.DeviceFriendlyName, command.Volume);
+                        if (deviceVolumeSuccess) {
+                            _logger.LogInformation("Device volume set to {Volume:P0} for {DeviceName}",
+                                command.Volume, command.DeviceFriendlyName);
+                        }
+                        else {
+                            _logger.LogWarning("Failed to set volume for device {DeviceName}",
+                                command.DeviceFriendlyName);
+                        }
+                        break;
+
+                    case AudioCommandType.MuteDevice:
+                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
+                            _logger.LogWarning("Device friendly name is required for MuteDevice command");
+                            break;
+                        }
+
+                        var deviceMuteSuccess = await _audioManager.MuteDeviceByFriendlyNameAsync(command.DeviceFriendlyName, true);
+                        if (deviceMuteSuccess) {
+                            _logger.LogInformation("Device {DeviceName} muted", command.DeviceFriendlyName);
+                        }
+                        else {
+                            _logger.LogWarning("Failed to mute device {DeviceName}", command.DeviceFriendlyName);
+                        }
+                        break;
+
+                    case AudioCommandType.UnmuteDevice:
+                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
+                            _logger.LogWarning("Device friendly name is required for UnmuteDevice command");
+                            break;
+                        }
+
+                        var deviceUnmuteSuccess = await _audioManager.MuteDeviceByFriendlyNameAsync(command.DeviceFriendlyName, false);
+                        if (deviceUnmuteSuccess) {
+                            _logger.LogInformation("Device {DeviceName} unmuted", command.DeviceFriendlyName);
+                        }
+                        else {
+                            _logger.LogWarning("Failed to unmute device {DeviceName}", command.DeviceFriendlyName);
                         }
                         break;
 
@@ -458,36 +439,30 @@ namespace UniMixerServer.Services
 
                     case AudioCommandType.SetDefaultDeviceVolume:
                         var setVolumeSuccess = await _audioManager.SetDefaultDeviceVolumeAsync(command.Volume);
-                        if (setVolumeSuccess)
-                        {
+                        if (setVolumeSuccess) {
                             _logger.LogInformation("Default device volume set to {Volume:P0}", command.Volume);
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to set default device volume");
                         }
                         break;
 
                     case AudioCommandType.MuteDefaultDevice:
                         var muteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(true);
-                        if (muteDefaultSuccess)
-                        {
+                        if (muteDefaultSuccess) {
                             _logger.LogInformation("Default device muted");
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to mute default device");
                         }
                         break;
 
                     case AudioCommandType.UnmuteDefaultDevice:
                         var unmuteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(false);
-                        if (unmuteDefaultSuccess)
-                        {
+                        if (unmuteDefaultSuccess) {
                             _logger.LogInformation("Default device unmuted");
                         }
-                        else
-                        {
+                        else {
                             _logger.LogWarning("Failed to unmute default device");
                         }
                         break;
@@ -497,20 +472,17 @@ namespace UniMixerServer.Services
                         break;
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error executing command {CommandType}", command.CommandType);
             }
         }
 
-        private void OnConnectionStatusChanged(object? sender, ConnectionStatusChangedEventArgs e)
-        {
+        private void OnConnectionStatusChanged(object? sender, ConnectionStatusChangedEventArgs e) {
             _logger.LogInformation("Connection status changed for {HandlerName}: {IsConnected} - {Message}",
                 e.HandlerName, e.IsConnected ? "Connected" : "Disconnected", e.Message);
         }
 
-        private void OnAudioSessionChanged(object? sender, AudioSessionChangedEventArgs e)
-        {
+        private void OnAudioSessionChanged(object? sender, AudioSessionChangedEventArgs e) {
             _logger.LogDebug("Audio sessions changed: {SessionCount} sessions", e.Sessions.Count);
             _lastKnownSessions = e.Sessions;
         }

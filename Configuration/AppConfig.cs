@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 
-namespace UniMixerServer.Configuration
-{
-    public class AppConfig
-    {
+namespace UniMixerServer.Configuration {
+    public class AppConfig {
         public string DeviceId { get; set; } = Environment.MachineName;
         public int StatusBroadcastIntervalMs { get; set; } = 10000;
         public int AudioSessionRefreshIntervalMs { get; set; } = 5000;
@@ -19,11 +17,10 @@ namespace UniMixerServer.Configuration
         /// List of allowed process names or regex patterns. If empty, all processes are allowed.
         /// Can contain exact process names (e.g., "spotify.exe") or regex patterns (e.g., ".*music.*")
         /// </summary>
-        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music", "Jellyfin" };
+        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music", "Jellyfin", "cod" };
     }
 
-    public class AudioConfig
-    {
+    public class AudioConfig {
         /// <summary>
         /// Whether to include all audio devices or just the default device
         /// </summary>
@@ -50,8 +47,7 @@ namespace UniMixerServer.Configuration
         public bool EnableDetailedLogging { get; set; } = false;
     }
 
-    public class MqttConfig
-    {
+    public class MqttConfig {
         public string BrokerHost { get; set; } = "localhost";
         public int BrokerPort { get; set; } = 1883;
         public string Username { get; set; } = string.Empty;
@@ -63,8 +59,7 @@ namespace UniMixerServer.Configuration
         public int KeepAliveIntervalMs { get; set; } = 60000;
     }
 
-    public class MqttTopics
-    {
+    public class MqttTopics {
         public string StatusTopic { get; set; } = "homeassistant/unimix/audio_status";
         public string CommandTopic { get; set; } = "homeassistant/unimix/audio/requests";
         public string ResponseTopic { get; set; } = "homeassistant/unimix/audio/responses";
@@ -72,8 +67,7 @@ namespace UniMixerServer.Configuration
         public string DiscoveryPrefix { get; set; } = "homeassistant";
     }
 
-    public class SerialConfig
-    {
+    public class SerialConfig {
         public string PortName { get; set; } = "COM8";
         public int BaudRate { get; set; } = 115200;
         public int DataBits { get; set; } = 8;
@@ -85,8 +79,7 @@ namespace UniMixerServer.Configuration
         public int ReconnectDelayMs { get; set; } = 5000;
     }
 
-    public class LoggingConfig
-    {
+    public class LoggingConfig {
         public string LogLevel { get; set; } = "Information";
         public bool EnableFileLogging { get; set; } = true;
         public string LogFilePath { get; set; } = "logs/unimixer-.log";

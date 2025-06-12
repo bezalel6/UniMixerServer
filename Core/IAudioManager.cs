@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace UniMixerServer.Core
-{
-    public interface IAudioManager
-    {
+namespace UniMixerServer.Core {
+    public interface IAudioManager {
         /// <summary>
         /// Gets all currently active audio sessions
         /// </summary>
@@ -80,6 +78,26 @@ namespace UniMixerServer.Core
         Task<bool?> GetProcessMuteStateByNameAsync(string processName);
 
         /// <summary>
+        /// Sets the volume for an audio device by friendly name
+        /// </summary>
+        /// <param name="deviceFriendlyName">Device friendly name to control</param>
+        /// <param name="volume">Volume level between 0.0 and 1.0</param>
+        /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
+        /// <param name="deviceRole">Device role (Console/Multimedia/Communications)</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> SetDeviceVolumeByFriendlyNameAsync(string deviceFriendlyName, float volume, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console);
+
+        /// <summary>
+        /// Mutes or unmutes an audio device by friendly name
+        /// </summary>
+        /// <param name="deviceFriendlyName">Device friendly name to control</param>
+        /// <param name="mute">True to mute, false to unmute</param>
+        /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
+        /// <param name="deviceRole">Device role (Console/Multimedia/Communications)</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> MuteDeviceByFriendlyNameAsync(string deviceFriendlyName, bool mute, AudioDataFlow dataFlow = AudioDataFlow.Render, AudioDeviceRole deviceRole = AudioDeviceRole.Console);
+
+        /// <summary>
         /// Gets information about the default audio device
         /// </summary>
         /// <param name="dataFlow">Data flow direction (Render/Capture)</param>
@@ -111,14 +129,12 @@ namespace UniMixerServer.Core
         event EventHandler<AudioSessionChangedEventArgs>? AudioSessionChanged;
     }
 
-    public class AudioSessionChangedEventArgs : EventArgs
-    {
+    public class AudioSessionChangedEventArgs : EventArgs {
         public List<AudioSession> Sessions { get; set; } = new List<AudioSession>();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 
-    public class DefaultAudioDeviceInfo
-    {
+    public class DefaultAudioDeviceInfo {
         public string DeviceId { get; set; } = string.Empty;
         public string DeviceName { get; set; } = string.Empty;
         public string FriendlyName { get; set; } = string.Empty;
