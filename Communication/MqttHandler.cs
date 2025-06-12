@@ -10,10 +10,8 @@ using MQTTnet.Extensions.ManagedClient;
 using UniMixerServer.Configuration;
 using UniMixerServer.Models;
 
-namespace UniMixerServer.Communication
-{
-    public class MqttHandler : ICommunicationHandler, IDisposable
-    {
+namespace UniMixerServer.Communication {
+    public class MqttHandler : ICommunicationHandler, IDisposable {
         private readonly ILogger<MqttHandler> _logger;
         private readonly MqttConfig _config;
         private IManagedMqttClient? _mqttClient;
@@ -23,18 +21,16 @@ namespace UniMixerServer.Communication
         public bool IsConnected => _mqttClient?.IsConnected ?? false;
 
         public event EventHandler<CommandReceivedEventArgs>? CommandReceived;
+        public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
-        public MqttHandler(ILogger<MqttHandler> logger, MqttConfig config)
-        {
+        public MqttHandler(ILogger<MqttHandler> logger, MqttConfig config) {
             _logger = logger;
             _config = config;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
+        public async Task StartAsync(CancellationToken cancellationToken = default) {
+            try {
                 _logger.LogInformation("Starting MQTT handler...");
 
                 var factory = new MqttFactory();
@@ -53,14 +49,12 @@ namespace UniMixerServer.Communication
                     .WithCleanSession(true);
 
                 // Add credentials if provided
-                if (!string.IsNullOrEmpty(_config.Username))
-                {
+                if (!string.IsNullOrEmpty(_config.Username)) {
                     clientOptions = clientOptions.WithCredentials(_config.Username, _config.Password);
                 }
 
                 // Add TLS if enabled
-                if (_config.UseTls)
-                {
+                if (_config.UseTls) {
                     clientOptions = clientOptions.WithTlsOptions(o => o.UseTls());
                 }
 
@@ -75,21 +69,17 @@ namespace UniMixerServer.Communication
 
                 _logger.LogInformation("MQTT handler started successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Failed to start MQTT handler");
                 throw;
             }
         }
 
-        public async Task StopAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
+        public async Task StopAsync(CancellationToken cancellationToken = default) {
+            try {
                 _logger.LogInformation("Stopping MQTT handler...");
 
-                if (_mqttClient != null)
-                {
+                if (_mqttClient != null) {
                     await _mqttClient.StopAsync();
                     _mqttClient.Dispose();
                     _mqttClient = null;
@@ -97,25 +87,20 @@ namespace UniMixerServer.Communication
 
                 _logger.LogInformation("MQTT handler stopped successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error stopping MQTT handler");
                 throw;
             }
         }
 
-        public async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default)
-        {
-            if (_mqttClient == null || !IsConnected)
-            {
+        public async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default) {
+            if (_mqttClient == null || !IsConnected) {
                 _logger.LogWarning("Cannot send status - MQTT client not connected");
                 return;
             }
 
-            try
-            {
-                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions
-                {
+            try {
+                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
@@ -129,14 +114,12 @@ namespace UniMixerServer.Communication
                 await _mqttClient.EnqueueAsync(message);
                 _logger.LogDebug("Status message sent to MQTT topic: {Topic}", _config.Topics.StatusTopic);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via MQTT");
             }
         }
 
-        private async Task OnConnectedAsync(MqttClientConnectedEventArgs args)
-        {
+        private async Task OnConnectedAsync(MqttClientConnectedEventArgs args) {
             _logger.LogInformation("MQTT client connected to broker {Host}:{Port}", _config.BrokerHost, _config.BrokerPort);
 
             // Subscribe to command topics
@@ -147,21 +130,18 @@ namespace UniMixerServer.Communication
                 _config.Topics.CommandTopic, _config.Topics.ControlTopic);
 
             // Notify connection status change
-            ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-            {
+            ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                 IsConnected = true,
                 HandlerName = Name,
                 Message = "Connected to MQTT broker"
             });
         }
 
-        private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args)
-        {
+        private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args) {
             _logger.LogWarning("MQTT client disconnected. Reason: {Reason}", args.Reason);
 
             // Notify connection status change
-            ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
-            {
+            ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs {
                 IsConnected = false,
                 HandlerName = Name,
                 Message = $"Disconnected from MQTT broker: {args.Reason}"
@@ -170,56 +150,109 @@ namespace UniMixerServer.Communication
             await Task.CompletedTask;
         }
 
-        private async Task OnMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args)
-        {
-            try
-            {
+        private async Task OnMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args) {
+            try {
                 var topic = args.ApplicationMessage.Topic;
                 var payload = Encoding.UTF8.GetString(args.ApplicationMessage.PayloadSegment);
 
                 _logger.LogDebug("Received MQTT message on topic {Topic}: {Payload}", topic, payload);
 
-                // Parse the command from JSON
-                var command = JsonSerializer.Deserialize<AudioCommand>(payload, new JsonSerializerOptions
-                {
+                // First try to parse as a status update (new protocol)
+                var statusUpdate = TryParseStatusUpdate(payload);
+                if (statusUpdate != null) {
+                    _logger.LogInformation("StatusUpdate from MQTT: {SessionCount} sessions",
+                        statusUpdate.Sessions.Count);
+                    StatusUpdateReceived?.Invoke(this, new StatusUpdateReceivedEventArgs {
+                        StatusUpdate = statusUpdate,
+                        Source = $"MQTT:{topic}",
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
+                    return;
+                }
+
+                // Try to parse as a status request
+                var statusRequest = TryParseStatusRequest(payload);
+                if (statusRequest != null) {
+                    _logger.LogInformation("StatusRequest from MQTT");
+                    // Convert to legacy command format for compatibility
+                    var command = new AudioCommand {
+                        CommandType = AudioCommandType.GetAllSessions,
+                        RequestId = statusRequest.RequestId
+                    };
+                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
+                        Command = command,
+                        Source = $"MQTT:{topic}",
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
+                    return;
+                }
+
+                // Fall back to legacy command parsing
+                var legacyCommand = JsonSerializer.Deserialize<AudioCommand>(payload, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
-                if (command != null)
-                {
-                    // Fire the command received event
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs
-                    {
-                        Command = command,
+                if (legacyCommand != null) {
+                    _logger.LogInformation("Legacy Command: {CommandType} from MQTT", legacyCommand.CommandType);
+                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
+                        Command = legacyCommand,
                         Source = $"MQTT:{topic}",
-                        Timestamp = DateTime.UtcNow
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     });
                 }
-                else
-                {
-                    _logger.LogWarning("Failed to parse MQTT command from payload: {Payload}", payload);
+                else {
+                    _logger.LogWarning("Failed to parse MQTT message from payload: {Payload}", payload);
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, "Error processing MQTT message");
             }
 
             await Task.CompletedTask;
         }
 
-        public void Dispose()
-        {
+        private StatusUpdate? TryParseStatusUpdate(string payload) {
+            try {
+                var update = JsonSerializer.Deserialize<StatusUpdate>(payload, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                // Check if it's a valid status update
+                if (update?.MessageType == "StatusUpdate") {
+                    return update;
+                }
+            }
+            catch {
+                // Not a status update, continue
+            }
+            return null;
+        }
+
+        private StatusRequest? TryParseStatusRequest(string payload) {
+            try {
+                var request = JsonSerializer.Deserialize<StatusRequest>(payload, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                // Check if it's a valid status request
+                if (request?.MessageType == "GetStatus") {
+                    return request;
+                }
+            }
+            catch {
+                // Not a status request, continue
+            }
+            return null;
+        }
+
+        public void Dispose() {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
+        protected virtual void Dispose(bool disposing) {
+            if (!_disposed) {
+                if (disposing) {
                     _mqttClient?.Dispose();
                 }
                 _disposed = true;

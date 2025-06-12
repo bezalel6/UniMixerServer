@@ -127,6 +127,7 @@ namespace UniMixerServer.Services {
             // Subscribe to command events from all communication handlers
             foreach (var handler in _communicationHandlers) {
                 handler.CommandReceived += OnCommandReceived;
+                handler.StatusUpdateReceived += OnStatusUpdateReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
 
@@ -221,7 +222,7 @@ namespace UniMixerServer.Services {
 
                 var statusMessage = new StatusMessage {
                     DeviceId = _config.DeviceId,
-                    Timestamp = DateTime.UtcNow,
+                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ActiveSessionCount = validSessions.Count,
                     Sessions = validSessions.Select(s => new SessionStatus {
                         ProcessId = s.ProcessId,
@@ -329,6 +330,18 @@ namespace UniMixerServer.Services {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing command");
+            }
+        }
+
+        private async void OnStatusUpdateReceived(object? sender, StatusUpdateReceivedEventArgs e) {
+            try {
+                _logger.LogInformation("Processing status update from {Source} with {SessionCount} sessions",
+                    e.Source, e.StatusUpdate.Sessions.Count);
+
+                await ProcessStatusUpdateAsync(e.StatusUpdate);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing status update");
             }
         }
 
@@ -474,6 +487,70 @@ namespace UniMixerServer.Services {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error executing command {CommandType}", command.CommandType);
+            }
+        }
+
+        private async Task ProcessStatusUpdateAsync(StatusUpdate statusUpdate) {
+            try {
+                var timestampDate = DateTimeOffset.FromUnixTimeMilliseconds(statusUpdate.Timestamp).DateTime;
+                _logger.LogInformation("Processing status update: {SessionCount} sessions, {HasDefaultDevice}, timestamp: {Timestamp}",
+                    statusUpdate.Sessions.Count, statusUpdate.DefaultDevice != null ? "with default device" : "no default device", timestampDate);
+
+                // Process default device changes first
+                if (statusUpdate.DefaultDevice != null) {
+                    var defaultDevice = statusUpdate.DefaultDevice;
+
+                    // Set default device volume
+                    var volumeSuccess = await _audioManager.SetDefaultDeviceVolumeAsync(defaultDevice.Volume);
+                    if (volumeSuccess) {
+                        _logger.LogInformation("Updated default device volume to {Volume:P0}", defaultDevice.Volume);
+                    }
+                    else {
+                        _logger.LogWarning("Failed to update default device volume");
+                    }
+
+                    // Set default device mute state
+                    var muteSuccess = await _audioManager.MuteDefaultDeviceAsync(defaultDevice.IsMuted);
+                    if (muteSuccess) {
+                        _logger.LogInformation("Updated default device mute state to {IsMuted}", defaultDevice.IsMuted);
+                    }
+                    else {
+                        _logger.LogWarning("Failed to update default device mute state");
+                    }
+                }
+
+                // Process session updates
+                foreach (var sessionUpdate in statusUpdate.Sessions) {
+                    if (string.IsNullOrWhiteSpace(sessionUpdate.ProcessName)) {
+                        continue;
+                    }
+
+                    // Set volume for this process
+                    var volumeSuccess = await _audioManager.SetProcessVolumeByNameAsync(sessionUpdate.ProcessName, sessionUpdate.Volume);
+                    if (volumeSuccess) {
+                        _logger.LogInformation("Updated volume for {ProcessName} to {Volume:P0}",
+                            sessionUpdate.ProcessName, sessionUpdate.Volume);
+                    }
+                    else {
+                        _logger.LogWarning("Failed to update volume for process {ProcessName}", sessionUpdate.ProcessName);
+                    }
+
+                    // Set mute state for this process
+                    var muteSuccess = await _audioManager.MuteProcessByNameAsync(sessionUpdate.ProcessName, sessionUpdate.IsMuted);
+                    if (muteSuccess) {
+                        _logger.LogInformation("Updated mute state for {ProcessName} to {IsMuted}",
+                            sessionUpdate.ProcessName, sessionUpdate.IsMuted);
+                    }
+                    else {
+                        _logger.LogWarning("Failed to update mute state for process {ProcessName}", sessionUpdate.ProcessName);
+                    }
+                }
+
+                // Broadcast the updated status to confirm changes were applied
+                await BroadcastStatusAsync();
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing status update");
             }
         }
 

@@ -24,6 +24,7 @@ namespace UniMixerServer.Communication {
         public bool IsConnected => _serialPort?.IsOpen ?? false;
 
         public event EventHandler<CommandReceivedEventArgs>? CommandReceived;
+        public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
         public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config) {
@@ -213,30 +214,94 @@ namespace UniMixerServer.Communication {
 
         private async Task ProcessSerialMessage(string message) {
             try {
-                // All messages from ESP32 are commands - no prefix needed
-                var command = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions {
+                // First try to parse as a status update (new protocol)
+                var statusUpdate = TryParseStatusUpdate(message);
+                if (statusUpdate != null) {
+                    _logger.LogInformation("StatusUpdate from ESP32: {SessionCount} sessions",
+                        statusUpdate.Sessions.Count);
+                    StatusUpdateReceived?.Invoke(this, new StatusUpdateReceivedEventArgs {
+                        StatusUpdate = statusUpdate,
+                        Source = "Serial",
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
+                    return;
+                }
+
+                // Try to parse as a status request
+                var statusRequest = TryParseStatusRequest(message);
+                if (statusRequest != null) {
+                    _logger.LogInformation("StatusRequest from ESP32");
+                    // Convert to legacy command format for compatibility
+                    var command = new AudioCommand {
+                        CommandType = AudioCommandType.GetAllSessions,
+                        RequestId = statusRequest.RequestId
+                    };
+                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
+                        Command = command,
+                        Source = "Serial",
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
+                    return;
+                }
+
+                // Fall back to legacy command parsing
+                var legacyCommand = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                     Converters = { new JsonStringEnumConverter() }
                 });
 
-                if (command != null) {
-                    _logger.LogInformation("Command: {CommandType} from ESP32", command.CommandType);
+                if (legacyCommand != null) {
+                    _logger.LogInformation("Legacy Command: {CommandType} from ESP32", legacyCommand.CommandType);
                     CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
-                        Command = command,
+                        Command = legacyCommand,
                         Source = "Serial",
-                        Timestamp = DateTime.UtcNow
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     });
                 }
                 else {
-                    _logger.LogWarning("Failed to parse command from {Length} char message", message.Length);
+                    _logger.LogWarning("Failed to parse message from {Length} char message", message.Length);
                 }
             }
-            catch (Exception) {
+            catch (Exception ex) {
                 _logger.LogInformation(message);
                 // _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
             }
 
             await Task.CompletedTask;
+        }
+
+        private StatusUpdate? TryParseStatusUpdate(string message) {
+            try {
+                var update = JsonSerializer.Deserialize<StatusUpdate>(message, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                _logger.LogInformation("Deserialized StatusUpdate: {StatusUpdate}", JsonSerializer.Serialize(update, new JsonSerializerOptions { WriteIndented = true }));
+                // Check if it's a valid status update
+                if (update?.MessageType == "StatusUpdate") {
+                    return update;
+                }
+            }
+            catch {
+                // Not a status update, continue
+            }
+            return null;
+        }
+
+        private StatusRequest? TryParseStatusRequest(string message) {
+            try {
+                var request = JsonSerializer.Deserialize<StatusRequest>(message, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                // Check if it's a valid status request
+                if (request?.MessageType == "GetStatus") {
+                    return request;
+                }
+            }
+            catch {
+                // Not a status request, continue
+            }
+            return null;
         }
 
         private async Task TryReconnectAsync() {

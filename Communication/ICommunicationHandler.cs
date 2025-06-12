@@ -3,10 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using UniMixerServer.Models;
 
-namespace UniMixerServer.Communication
-{
-    public interface ICommunicationHandler
-    {
+namespace UniMixerServer.Communication {
+    public interface ICommunicationHandler {
         /// <summary>
         /// Gets the name of this communication handler
         /// </summary>
@@ -40,9 +38,14 @@ namespace UniMixerServer.Communication
         Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Event fired when a command is received
+        /// Event fired when a command is received (legacy protocol)
         /// </summary>
         event EventHandler<CommandReceivedEventArgs>? CommandReceived;
+
+        /// <summary>
+        /// Event fired when a status update is received (new protocol)
+        /// </summary>
+        event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
 
         /// <summary>
         /// Event fired when connection status changes
@@ -50,18 +53,22 @@ namespace UniMixerServer.Communication
         event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
     }
 
-    public class CommandReceivedEventArgs : EventArgs
-    {
+    public class CommandReceivedEventArgs : EventArgs {
         public AudioCommand Command { get; set; } = new AudioCommand();
         public string Source { get; set; } = string.Empty;
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
-    public class ConnectionStatusChangedEventArgs : EventArgs
-    {
+    public class StatusUpdateReceivedEventArgs : EventArgs {
+        public StatusUpdate StatusUpdate { get; set; } = new StatusUpdate();
+        public string Source { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    public class ConnectionStatusChangedEventArgs : EventArgs {
         public bool IsConnected { get; set; }
         public string HandlerName { get; set; } = string.Empty;
         public string? Message { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 }
