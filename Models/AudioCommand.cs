@@ -23,31 +23,7 @@ namespace UniMixerServer.Models {
         public string State { get; set; } = string.Empty;
     }
 
-    // Legacy command system (kept for compatibility)
-    public class AudioCommand {
-        public AudioCommandType CommandType { get; set; }
-        public int ProcessId { get; set; }
-        public string ProcessName { get; set; } = string.Empty;
-        public string DeviceFriendlyName { get; set; } = string.Empty;
-        public float Volume { get; set; }
-        public bool Mute { get; set; }
-        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        public string RequestId { get; set; } = Guid.NewGuid().ToString();
-    }
 
-    public enum AudioCommandType {
-        SetVolume,
-        Mute,
-        Unmute,
-        SetDeviceVolume,
-        MuteDevice,
-        UnmuteDevice,
-        GetStatus,
-        GetAllSessions,
-        SetDefaultDeviceVolume,
-        MuteDefaultDevice,
-        UnmuteDefaultDevice
-    }
 
     public class StatusMessage {
         public string DeviceId { get; set; } = Environment.MachineName;

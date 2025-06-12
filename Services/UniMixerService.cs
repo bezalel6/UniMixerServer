@@ -124,9 +124,8 @@ namespace UniMixerServer.Services {
         }
 
         private void SetupEventHandlers() {
-            // Subscribe to command events from all communication handlers
+            // Subscribe to status update events from all communication handlers
             foreach (var handler in _communicationHandlers) {
-                handler.CommandReceived += OnCommandReceived;
                 handler.StatusUpdateReceived += OnStatusUpdateReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
@@ -321,18 +320,6 @@ namespace UniMixerServer.Services {
             };
         }
 
-        private async void OnCommandReceived(object? sender, CommandReceivedEventArgs e) {
-            try {
-                _logger.LogInformation("Processing command {CommandType} from {Source}",
-                    e.Command.CommandType, e.Source);
-
-                await ProcessCommandAsync(e.Command);
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error processing command");
-            }
-        }
-
         private async void OnStatusUpdateReceived(object? sender, StatusUpdateReceivedEventArgs e) {
             try {
                 _logger.LogInformation("Processing status update from {Source} with {SessionCount} sessions",
@@ -345,150 +332,7 @@ namespace UniMixerServer.Services {
             }
         }
 
-        private async Task ProcessCommandAsync(AudioCommand command) {
-            try {
-                switch (command.CommandType) {
-                    case AudioCommandType.SetVolume:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
-                            _logger.LogWarning("Process name is required for SetVolume command");
-                            break;
-                        }
 
-                        var volumeSuccess = await _audioManager.SetProcessVolumeByNameAsync(command.ProcessName, command.Volume);
-                        if (volumeSuccess) {
-                            _logger.LogInformation("Volume set to {Volume:P0} for process {ProcessName}",
-                                command.Volume, command.ProcessName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to set volume for process {ProcessName} (no active audio session found)",
-                                command.ProcessName);
-                        }
-                        break;
-
-                    case AudioCommandType.Mute:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
-                            _logger.LogWarning("Process name is required for Mute command");
-                            break;
-                        }
-
-                        var muteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, true);
-                        if (muteSuccess) {
-                            _logger.LogInformation("Process {ProcessName} muted", command.ProcessName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to mute process {ProcessName}", command.ProcessName);
-                        }
-                        break;
-
-                    case AudioCommandType.Unmute:
-                        if (string.IsNullOrWhiteSpace(command.ProcessName)) {
-                            _logger.LogWarning("Process name is required for Unmute command");
-                            break;
-                        }
-
-                        var unmuteSuccess = await _audioManager.MuteProcessByNameAsync(command.ProcessName, false);
-                        if (unmuteSuccess) {
-                            _logger.LogInformation("Process {ProcessName} unmuted", command.ProcessName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to unmute process {ProcessName}", command.ProcessName);
-                        }
-                        break;
-
-                    case AudioCommandType.SetDeviceVolume:
-                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
-                            _logger.LogWarning("Device friendly name is required for SetDeviceVolume command");
-                            break;
-                        }
-
-                        var deviceVolumeSuccess = await _audioManager.SetDeviceVolumeByFriendlyNameAsync(command.DeviceFriendlyName, command.Volume);
-                        if (deviceVolumeSuccess) {
-                            _logger.LogInformation("Device volume set to {Volume:P0} for {DeviceName}",
-                                command.Volume, command.DeviceFriendlyName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to set volume for device {DeviceName}",
-                                command.DeviceFriendlyName);
-                        }
-                        break;
-
-                    case AudioCommandType.MuteDevice:
-                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
-                            _logger.LogWarning("Device friendly name is required for MuteDevice command");
-                            break;
-                        }
-
-                        var deviceMuteSuccess = await _audioManager.MuteDeviceByFriendlyNameAsync(command.DeviceFriendlyName, true);
-                        if (deviceMuteSuccess) {
-                            _logger.LogInformation("Device {DeviceName} muted", command.DeviceFriendlyName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to mute device {DeviceName}", command.DeviceFriendlyName);
-                        }
-                        break;
-
-                    case AudioCommandType.UnmuteDevice:
-                        if (string.IsNullOrWhiteSpace(command.DeviceFriendlyName)) {
-                            _logger.LogWarning("Device friendly name is required for UnmuteDevice command");
-                            break;
-                        }
-
-                        var deviceUnmuteSuccess = await _audioManager.MuteDeviceByFriendlyNameAsync(command.DeviceFriendlyName, false);
-                        if (deviceUnmuteSuccess) {
-                            _logger.LogInformation("Device {DeviceName} unmuted", command.DeviceFriendlyName);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to unmute device {DeviceName}", command.DeviceFriendlyName);
-                        }
-                        break;
-
-                    case AudioCommandType.GetStatus:
-                        await BroadcastStatusAsync();
-                        break;
-
-                    case AudioCommandType.GetAllSessions:
-                        await BroadcastStatusAsync();
-                        break;
-
-                    case AudioCommandType.SetDefaultDeviceVolume:
-                        var setVolumeSuccess = await _audioManager.SetDefaultDeviceVolumeAsync(command.Volume);
-                        if (setVolumeSuccess) {
-                            _logger.LogInformation("Default device volume set to {Volume:P0}", command.Volume);
-                        }
-                        else {
-                            _logger.LogWarning("Failed to set default device volume");
-                        }
-                        break;
-
-                    case AudioCommandType.MuteDefaultDevice:
-                        var muteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(true);
-                        if (muteDefaultSuccess) {
-                            _logger.LogInformation("Default device muted");
-                        }
-                        else {
-                            _logger.LogWarning("Failed to mute default device");
-                        }
-                        break;
-
-                    case AudioCommandType.UnmuteDefaultDevice:
-                        var unmuteDefaultSuccess = await _audioManager.MuteDefaultDeviceAsync(false);
-                        if (unmuteDefaultSuccess) {
-                            _logger.LogInformation("Default device unmuted");
-                        }
-                        else {
-                            _logger.LogWarning("Failed to unmute default device");
-                        }
-                        break;
-
-                    default:
-                        _logger.LogWarning("Unknown command type: {CommandType}", command.CommandType);
-                        break;
-                }
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error executing command {CommandType}", command.CommandType);
-            }
-        }
 
         private async Task ProcessStatusUpdateAsync(StatusUpdate statusUpdate) {
             try {

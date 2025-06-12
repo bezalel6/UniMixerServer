@@ -38,12 +38,7 @@ namespace UniMixerServer.Communication {
         Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Event fired when a command is received (legacy protocol)
-        /// </summary>
-        event EventHandler<CommandReceivedEventArgs>? CommandReceived;
-
-        /// <summary>
-        /// Event fired when a status update is received (new protocol)
+        /// Event fired when a status update is received
         /// </summary>
         event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
 
@@ -51,12 +46,6 @@ namespace UniMixerServer.Communication {
         /// Event fired when connection status changes
         /// </summary>
         event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
-    }
-
-    public class CommandReceivedEventArgs : EventArgs {
-        public AudioCommand Command { get; set; } = new AudioCommand();
-        public string Source { get; set; } = string.Empty;
-        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
     public class StatusUpdateReceivedEventArgs : EventArgs {

@@ -20,7 +20,6 @@ namespace UniMixerServer.Communication {
         public string Name => "MQTT";
         public bool IsConnected => _mqttClient?.IsConnected ?? false;
 
-        public event EventHandler<CommandReceivedEventArgs>? CommandReceived;
         public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
@@ -173,36 +172,13 @@ namespace UniMixerServer.Communication {
                 // Try to parse as a status request
                 var statusRequest = TryParseStatusRequest(payload);
                 if (statusRequest != null) {
-                    _logger.LogInformation("StatusRequest from MQTT");
-                    // Convert to legacy command format for compatibility
-                    var command = new AudioCommand {
-                        CommandType = AudioCommandType.GetAllSessions,
-                        RequestId = statusRequest.RequestId
-                    };
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
-                        Command = command,
-                        Source = $"MQTT:{topic}",
-                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    });
+                    _logger.LogInformation("StatusRequest from MQTT - triggering status broadcast");
+                    // Status requests just trigger a status broadcast
+                    // The service will handle this by calling BroadcastStatusAsync
                     return;
                 }
 
-                // Fall back to legacy command parsing
-                var legacyCommand = JsonSerializer.Deserialize<AudioCommand>(payload, new JsonSerializerOptions {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
-
-                if (legacyCommand != null) {
-                    _logger.LogInformation("Legacy Command: {CommandType} from MQTT", legacyCommand.CommandType);
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
-                        Command = legacyCommand,
-                        Source = $"MQTT:{topic}",
-                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    });
-                }
-                else {
-                    _logger.LogWarning("Failed to parse MQTT message from payload: {Payload}", payload);
-                }
+                _logger.LogWarning("Failed to parse MQTT message from payload: {Payload}", payload);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing MQTT message");

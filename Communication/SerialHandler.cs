@@ -23,7 +23,6 @@ namespace UniMixerServer.Communication {
         public string Name => "Serial";
         public bool IsConnected => _serialPort?.IsOpen ?? false;
 
-        public event EventHandler<CommandReceivedEventArgs>? CommandReceived;
         public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
@@ -230,39 +229,15 @@ namespace UniMixerServer.Communication {
                 // Try to parse as a status request
                 var statusRequest = TryParseStatusRequest(message);
                 if (statusRequest != null) {
-                    _logger.LogInformation("StatusRequest from ESP32");
-                    // Convert to legacy command format for compatibility
-                    var command = new AudioCommand {
-                        CommandType = AudioCommandType.GetAllSessions,
-                        RequestId = statusRequest.RequestId
-                    };
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
-                        Command = command,
-                        Source = "Serial",
-                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    });
+                    _logger.LogInformation("StatusRequest from ESP32 - triggering status broadcast");
+                    // Status requests just trigger a status broadcast
+                    // The service will handle this by calling BroadcastStatusAsync
                     return;
                 }
 
-                // Fall back to legacy command parsing
-                var legacyCommand = JsonSerializer.Deserialize<AudioCommand>(message, new JsonSerializerOptions {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    Converters = { new JsonStringEnumConverter() }
-                });
-
-                if (legacyCommand != null) {
-                    _logger.LogInformation("Legacy Command: {CommandType} from ESP32", legacyCommand.CommandType);
-                    CommandReceived?.Invoke(this, new CommandReceivedEventArgs {
-                        Command = legacyCommand,
-                        Source = "Serial",
-                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    });
-                }
-                else {
-                    _logger.LogWarning("Failed to parse message from {Length} char message", message.Length);
-                }
+                _logger.LogWarning("Failed to parse message from {Length} char message", message.Length);
             }
-            catch (Exception ex) {
+            catch (Exception) {
                 _logger.LogInformation(message);
                 // _logger.LogError(ex, "Error processing serial message: {Length} chars", message.Length);
             }
