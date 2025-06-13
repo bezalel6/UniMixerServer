@@ -17,7 +17,7 @@ namespace UniMixerServer.Configuration {
         /// List of allowed process names or regex patterns. If empty, all processes are allowed.
         /// Can contain exact process names (e.g., "spotify.exe") or regex patterns (e.g., ".*music.*")
         /// </summary>
-        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music", "Jellyfin", "cod" };
+        public List<string> AllowedProcesses { get; set; } = new List<string> { "chrome", "Legcord", "Youtube Music", "Jellyfin", "cod", "hitman" };
     }
 
     public class AudioConfig {

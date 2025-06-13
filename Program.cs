@@ -12,22 +12,17 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace UniMixerServer
-{
-    class Program
-    {
-        static async Task Main(string[] args)
-        {
+namespace UniMixerServer {
+    class Program {
+        static async Task Main(string[] args) {
             // Check if we should run the audio manager test
-            if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase))
-            {
+            if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase)) {
                 await AudioManagerTester.RunTest(args);
                 return;
             }
 
             // Check if we should run the desktop app
-            if (args.Length > 0 && args[0].Equals("--desktop", StringComparison.OrdinalIgnoreCase))
-            {
+            if (args.Length > 0 && args[0].Equals("--desktop", StringComparison.OrdinalIgnoreCase)) {
                 UniMixerServer.UI.DesktopAppLauncher.Launch();
                 return;
             }
@@ -37,15 +32,13 @@ namespace UniMixerServer
 
             // Create host builder
             var hostBuilder = Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((context, config) =>
-                {
+                .ConfigureAppConfiguration((context, config) => {
                     config.SetBasePath(Directory.GetCurrentDirectory())
                           .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                           .AddEnvironmentVariables()
                           .AddCommandLine(args);
                 })
-                .ConfigureServices((context, services) =>
-                {
+                .ConfigureServices((context, services) => {
                     // Get configuration
                     var configuration = context.Configuration;
                     var appConfig = configuration.Get<AppConfig>() ?? new AppConfig();
@@ -80,23 +73,20 @@ namespace UniMixerServer
                     services.AddSingleton(appConfig);
 
                     // Register core services
-                    services.AddSingleton<IAudioManager>(provider =>
-                    {
+                    services.AddSingleton<IAudioManager>(provider => {
                         var logger = provider.GetRequiredService<ILogger<AudioManager>>();
                         return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging);
                     });
 
                     // Register communication handlers conditionally
-                    if (appConfig.EnableMqtt)
-                    {
+                    if (appConfig.EnableMqtt) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new MqttHandler(
                                 provider.GetRequiredService<ILogger<MqttHandler>>(),
                                 appConfig.Mqtt));
                     }
 
-                    if (appConfig.EnableSerial)
-                    {
+                    if (appConfig.EnableSerial) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new SerialHandler(
                                 provider.GetRequiredService<ILogger<SerialHandler>>(),
@@ -106,24 +96,31 @@ namespace UniMixerServer
                     // Register main service
                     services.AddHostedService<UniMixerService>();
                 })
-                .UseSerilog((context, services, configuration) =>
-                {
+                .UseSerilog((context, services, configuration) => {
                     var appConfig = context.Configuration.Get<AppConfig>() ?? new AppConfig();
 
+                    // Convert string log level to Serilog LogEventLevel
+                    var logLevel = appConfig.Logging.LogLevel.ToUpperInvariant() switch {
+                        "DEBUG" => Serilog.Events.LogEventLevel.Debug,
+                        "INFORMATION" or "INFO" => Serilog.Events.LogEventLevel.Information,
+                        "WARNING" or "WARN" => Serilog.Events.LogEventLevel.Warning,
+                        "ERROR" => Serilog.Events.LogEventLevel.Error,
+                        "FATAL" => Serilog.Events.LogEventLevel.Fatal,
+                        _ => Serilog.Events.LogEventLevel.Information
+                    };
+
                     configuration
-                        .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+                        .MinimumLevel.Is(logLevel)
                         .Enrich.FromLogContext()
                         .Enrich.WithProperty("Application", "UniMixerServer")
                         .Enrich.WithProperty("MachineName", Environment.MachineName);
 
-                    if (appConfig.Logging.EnableConsoleLogging)
-                    {
+                    if (appConfig.Logging.EnableConsoleLogging) {
                         configuration.WriteTo.Console(
                             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
                     }
 
-                    if (appConfig.Logging.EnableFileLogging)
-                    {
+                    if (appConfig.Logging.EnableFileLogging) {
                         var logPath = appConfig.Logging.LogFilePath.Replace("-", $"-{DateTime.Now:yyyyMMdd}-");
                         configuration.WriteTo.File(
                             logPath,
@@ -135,8 +132,7 @@ namespace UniMixerServer
                 })
                 .UseWindowsService(); // Enable running as Windows Service
 
-            try
-            {
+            try {
                 Console.WriteLine("UniMixer Server starting...");
                 Console.WriteLine($"Device ID: {Environment.MachineName}");
                 Console.WriteLine("Communication: Serial only (MQTT disabled)");
@@ -173,8 +169,7 @@ namespace UniMixerServer
                 Console.WriteLine($"Baud Rate: {finalConfig.Serial.BaudRate}");
                 Console.WriteLine($"Enable Auto Reconnect: {finalConfig.Serial.EnableAutoReconnect}");
 
-                if (finalConfig.EnableMqtt)
-                {
+                if (finalConfig.EnableMqtt) {
                     Console.WriteLine("\n--- MQTT Configuration ---");
                     Console.WriteLine($"Broker Host: {finalConfig.Mqtt.BrokerHost}");
                     Console.WriteLine($"Broker Port: {finalConfig.Mqtt.BrokerPort}");
@@ -188,8 +183,7 @@ namespace UniMixerServer
 
                 await host.RunAsync();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Fatal error: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
