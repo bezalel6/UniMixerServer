@@ -21,6 +21,7 @@ namespace UniMixerServer.Communication {
         public bool IsConnected => _mqttClient?.IsConnected ?? false;
 
         public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
+        public event EventHandler<StatusRequestReceivedEventArgs>? StatusRequestReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
         public MqttHandler(ILogger<MqttHandler> logger, MqttConfig config) {
@@ -173,8 +174,12 @@ namespace UniMixerServer.Communication {
                 var statusRequest = TryParseStatusRequest(payload);
                 if (statusRequest != null) {
                     _logger.LogInformation("StatusRequest from MQTT - triggering status broadcast");
-                    // Status requests just trigger a status broadcast
-                    // The service will handle this by calling BroadcastStatusAsync
+
+                    StatusRequestReceived?.Invoke(this, new StatusRequestReceivedEventArgs {
+                        StatusRequest = statusRequest,
+                        Source = $"MQTT:{topic}",
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
                     return;
                 }
 

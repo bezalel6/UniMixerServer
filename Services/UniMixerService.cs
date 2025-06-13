@@ -127,6 +127,7 @@ namespace UniMixerServer.Services {
             // Subscribe to status update events from all communication handlers
             foreach (var handler in _communicationHandlers) {
                 handler.StatusUpdateReceived += OnStatusUpdateReceived;
+                handler.StatusRequestReceived += OnStatusRequestReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
 
@@ -329,6 +330,18 @@ namespace UniMixerServer.Services {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing status update");
+            }
+        }
+
+        private async void OnStatusRequestReceived(object? sender, StatusRequestReceivedEventArgs e) {
+            try {
+                _logger.LogInformation("Processing status request from {Source} - broadcasting current status",
+                    e.Source);
+
+                await BroadcastStatusAsync();
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing status request");
             }
         }
 

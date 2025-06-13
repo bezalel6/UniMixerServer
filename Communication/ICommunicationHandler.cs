@@ -43,6 +43,11 @@ namespace UniMixerServer.Communication {
         event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
 
         /// <summary>
+        /// Event fired when a status request is received
+        /// </summary>
+        event EventHandler<StatusRequestReceivedEventArgs>? StatusRequestReceived;
+
+        /// <summary>
         /// Event fired when connection status changes
         /// </summary>
         event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
@@ -50,6 +55,12 @@ namespace UniMixerServer.Communication {
 
     public class StatusUpdateReceivedEventArgs : EventArgs {
         public StatusUpdate StatusUpdate { get; set; } = new StatusUpdate();
+        public string Source { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    public class StatusRequestReceivedEventArgs : EventArgs {
+        public StatusRequest StatusRequest { get; set; } = new StatusRequest();
         public string Source { get; set; } = string.Empty;
         public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
