@@ -217,6 +217,13 @@ namespace UniMixerServer.Services {
                         sessions.Count - validSessions.Count);
                 }
 
+                // Log each valid session with their volume
+                _logger.LogInformation("Broadcasting status for {SessionCount} sessions:", validSessions.Count);
+                foreach (var session in validSessions) {
+                    _logger.LogInformation("  Session: {ProcessName} (PID: {ProcessId}) - Volume: {Volume:P1}, Muted: {IsMuted}, State: {State}",
+                        session.ProcessName, session.ProcessId, session.Volume, session.IsMuted, session.SessionState);
+                }
+
                 // Get default audio device information
                 var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
@@ -344,8 +351,6 @@ namespace UniMixerServer.Services {
                 _logger.LogError(ex, "Error processing status request");
             }
         }
-
-
 
         private async Task ProcessStatusUpdateAsync(StatusUpdate statusUpdate) {
             try {
