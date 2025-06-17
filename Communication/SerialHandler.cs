@@ -122,42 +122,25 @@ namespace UniMixerServer.Communication {
             }
 
             try {
-                // Create a clean JSON structure that matches what the ESP32 expects
-                var sessionsList = new List<object>();
-                foreach (var session in status.Sessions) {
-                    var sessionDict = new Dictionary<string, object> {
-                        ["processName"] = session.ProcessName ?? string.Empty,
-                        ["volume"] = session.Volume,
-                        ["isMuted"] = session.IsMuted,
-                        ["state"] = session.State ?? string.Empty,
-                    };
-
-                    sessionsList.Add(sessionDict);
-                }
-
-                var statusData = new Dictionary<string, object> {
-                    ["sessions"] = sessionsList,
-                };
-                if (status.DefaultDevice != null) {
-                    var defaultDeviceData = new Dictionary<string, object> {
-                        ["friendlyName"] = status.DefaultDevice.FriendlyName ?? string.Empty,
-                        ["volume"] = status.DefaultDevice.Volume,
-                        ["isMuted"] = status.DefaultDevice.IsMuted,
-                        ["dataFlow"] = status.DefaultDevice.DataFlow ?? string.Empty,
-                        ["deviceRole"] = status.DefaultDevice.DeviceRole ?? string.Empty
-                    };
-                    statusData.Add("defaultDevice", defaultDeviceData);
-                }
-                var json = JsonSerializer.Serialize(statusData, new JsonSerializerOptions {
-                    // WriteIndented = false,
-                    // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                // Send the complete StatusMessage object with all fields
+                var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
                 var message = $"{json}\n";
-
-                // Concise logging - only essential info
-                _logger.LogDebug("Sending status: {SessionCount} sessions, {MessageLength} chars",
-                    sessionsList.Count, message.Length);
-                _logger.LogDebug(json);
+                
+                // Enhanced logging with reason information
+                var logMessage = $"Sending status: {status.Sessions.Count} sessions, {message.Length} chars (Reason: {status.Reason}";
+                if (!string.IsNullOrEmpty(status.OriginatingDeviceId)) {
+                    logMessage += $", OriginatingDevice: {status.OriginatingDeviceId}";
+                }
+                if (!string.IsNullOrEmpty(status.OriginatingRequestId)) {
+                    logMessage += $", RequestId: {status.OriginatingRequestId}";
+                }
+                logMessage += ")";
+                
+                _logger.LogDebug(logMessage);
+                _logger.LogInformation(json);
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
             }
             catch (Exception ex) {
@@ -240,7 +223,7 @@ namespace UniMixerServer.Communication {
                     return;
                 }
 
-                _logger.LogWarning("Failed to parse message from {Length} char message", message.Length);
+                _logger.LogInformation(message);
             }
             catch (Exception) {
                 _logger.LogInformation(message);

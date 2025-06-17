@@ -6,6 +6,7 @@ namespace UniMixerServer.Models {
     public class StatusUpdate {
         public string MessageType { get; set; } = string.Empty;
         public string RequestId { get; set; } = string.Empty;
+        public string DeviceId { get; set; } = string.Empty;
         public long Timestamp { get; set; }  // Milliseconds since epoch
         public List<SessionUpdate> Sessions { get; set; } = new List<SessionUpdate>();
         public DefaultAudioDevice? DefaultDevice { get; set; }
@@ -14,6 +15,7 @@ namespace UniMixerServer.Models {
     public class StatusRequest {
         public string MessageType { get; set; } = string.Empty;
         public string RequestId { get; set; } = string.Empty;
+        public string DeviceId { get; set; } = string.Empty;
     }
 
     public class SessionUpdate {
@@ -31,6 +33,18 @@ namespace UniMixerServer.Models {
         public int ActiveSessionCount { get; set; }
         public List<SessionStatus> Sessions { get; set; } = new List<SessionStatus>();
         public DefaultAudioDevice? DefaultDevice { get; set; }
+        public string Reason { get; set; } = StatusBroadcastReason.Unknown.ToString();
+        public string? OriginatingRequestId { get; set; }
+        public string? OriginatingDeviceId { get; set; }
+    }
+
+    public enum StatusBroadcastReason {
+        Unknown,
+        ServiceStartup,
+        PeriodicUpdate,
+        SessionChange,
+        StatusRequest,
+        UpdateResponse
     }
 
     public class SessionStatus {

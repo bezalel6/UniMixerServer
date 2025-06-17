@@ -11,6 +11,7 @@ using UniMixerServer.Communication;
 using UniMixerServer.Configuration;
 using UniMixerServer.Core;
 using UniMixerServer.Models;
+using static UniMixerServer.Models.StatusBroadcastReason;
 
 namespace UniMixerServer.Services {
     public class UniMixerService : BackgroundService {
@@ -50,7 +51,7 @@ namespace UniMixerServer.Services {
 
                 // Send initial status broadcast after successful initialization
                 _logger.LogInformation("Sending initial status broadcast...");
-                await BroadcastStatusAsync();
+                await BroadcastStatusAsync(StatusBroadcastReason.ServiceStartup);
 
                 // Keep the service running until cancellation is requested
                 await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -156,7 +157,7 @@ namespace UniMixerServer.Services {
 
         private async void OnStatusTimerElapsed(object? state) {
             try {
-                await BroadcastStatusAsync();
+                await BroadcastStatusAsync(StatusBroadcastReason.PeriodicUpdate);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error during status broadcast");
@@ -172,7 +173,7 @@ namespace UniMixerServer.Services {
                 if (HasSessionsChanged(sessions)) {
                     _lastKnownSessions = sessions;
                     _logger.LogDebug("Audio sessions changed, triggering status update");
-                    await BroadcastStatusAsync();
+                    await BroadcastStatusAsync(StatusBroadcastReason.SessionChange);
                 }
             }
             catch (Exception ex) {
@@ -199,7 +200,7 @@ namespace UniMixerServer.Services {
             return false;
         }
 
-        private async Task BroadcastStatusAsync() {
+        private async Task BroadcastStatusAsync(StatusBroadcastReason reason = StatusBroadcastReason.Unknown, string? originatingRequestId = null, string? originatingDeviceId = null) {
             try {
                 var config = CreateAudioDiscoveryConfig();
                 var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
@@ -218,7 +219,15 @@ namespace UniMixerServer.Services {
                 }
 
                 // Log each valid session with their volume
-                _logger.LogInformation("Broadcasting status for {SessionCount} sessions:", validSessions.Count);
+                var logMessage = $"Broadcasting status for {validSessions.Count} sessions (Reason: {reason}";
+                if (!string.IsNullOrEmpty(originatingDeviceId)) {
+                    logMessage += $", OriginatingDevice: {originatingDeviceId}";
+                }
+                if (!string.IsNullOrEmpty(originatingRequestId)) {
+                    logMessage += $", RequestId: {originatingRequestId}";
+                }
+                logMessage += "):";
+                _logger.LogInformation(logMessage);
                 foreach (var session in validSessions) {
                     _logger.LogInformation("  Session: {ProcessName} (PID: {ProcessId}) - Volume: {Volume:P1}, Muted: {IsMuted}, State: {State}",
                         session.ProcessName, session.ProcessId, session.Volume, session.IsMuted, session.SessionState);
@@ -239,7 +248,10 @@ namespace UniMixerServer.Services {
                         IsMuted = s.IsMuted,
                         State = ((AudioSessionState)s.SessionState).ToString()
                     }).ToList(),
-                    DefaultDevice = defaultDevice
+                    DefaultDevice = defaultDevice,
+                    Reason = reason.ToString(),
+                    OriginatingRequestId = originatingRequestId,
+                    OriginatingDeviceId = originatingDeviceId
                 };
 
                 // Broadcast to all connected communication handlers
@@ -345,7 +357,7 @@ namespace UniMixerServer.Services {
                 _logger.LogInformation("Processing status request from {Source} - broadcasting current status",
                     e.Source);
 
-                await BroadcastStatusAsync();
+                await BroadcastStatusAsync(StatusBroadcastReason.StatusRequest, e.StatusRequest.RequestId, e.StatusRequest.DeviceId);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing status request");
@@ -409,7 +421,7 @@ namespace UniMixerServer.Services {
                 }
 
                 // Broadcast the updated status to confirm changes were applied
-                await BroadcastStatusAsync();
+                await BroadcastStatusAsync(StatusBroadcastReason.UpdateResponse, statusUpdate.RequestId, statusUpdate.DeviceId);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing status update");
