@@ -78,6 +78,9 @@ namespace UniMixerServer {
                         return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging);
                     });
 
+                    // Register status update processor
+                    services.AddSingleton<StatusUpdateProcessor>();
+
                     // Register communication handlers conditionally
                     if (appConfig.EnableMqtt) {
                         services.AddSingleton<ICommunicationHandler>(provider =>

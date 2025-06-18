@@ -18,6 +18,7 @@ namespace UniMixerServer.Services {
         private readonly ILogger<UniMixerService> _logger;
         private readonly AppConfig _config;
         private readonly IAudioManager _audioManager;
+        private readonly StatusUpdateProcessor _statusUpdateProcessor;
         private readonly List<ICommunicationHandler> _communicationHandlers;
         private Timer? _statusTimer;
         private Timer? _audioRefreshTimer;
@@ -27,10 +28,12 @@ namespace UniMixerServer.Services {
             ILogger<UniMixerService> logger,
             IOptions<AppConfig> config,
             IAudioManager audioManager,
+            StatusUpdateProcessor statusUpdateProcessor,
             IEnumerable<ICommunicationHandler> communicationHandlers) {
             _logger = logger;
             _config = config.Value;
             _audioManager = audioManager;
+            _statusUpdateProcessor = statusUpdateProcessor;
             _communicationHandlers = communicationHandlers.ToList();
         }
 
@@ -370,58 +373,21 @@ namespace UniMixerServer.Services {
                 _logger.LogInformation("Processing status update: {SessionCount} sessions, {HasDefaultDevice}, timestamp: {Timestamp}",
                     statusUpdate.Sessions.Count, statusUpdate.DefaultDevice != null ? "with default device" : "no default device", timestampDate);
 
-                // Process default device changes first
-                if (statusUpdate.DefaultDevice != null) {
-                    var defaultDevice = statusUpdate.DefaultDevice;
+                // Get current local state for comparison
+                var config = CreateAudioDiscoveryConfig();
+                var currentSessions = await _audioManager.GetAllAudioSessionsAsync(config);
+                var currentDefaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
-                    // Set default device volume
-                    var volumeSuccess = await _audioManager.SetDefaultDeviceVolumeAsync(defaultDevice.Volume);
-                    if (volumeSuccess) {
-                        _logger.LogInformation("Updated default device volume to {Volume:P0}", defaultDevice.Volume);
-                    }
-                    else {
-                        _logger.LogWarning("Failed to update default device volume");
-                    }
+                // Process the update using the abstracted processor
+                var result = await _statusUpdateProcessor.ProcessUpdateAsync(statusUpdate, currentSessions, currentDefaultDevice);
 
-                    // Set default device mute state
-                    var muteSuccess = await _audioManager.MuteDefaultDeviceAsync(defaultDevice.IsMuted);
-                    if (muteSuccess) {
-                        _logger.LogInformation("Updated default device mute state to {IsMuted}", defaultDevice.IsMuted);
-                    }
-                    else {
-                        _logger.LogWarning("Failed to update default device mute state");
-                    }
+                // Broadcast updated status only if changes were made
+                if (result.HasChanges) {
+                    await BroadcastStatusAsync(StatusBroadcastReason.UpdateResponse, statusUpdate.RequestId, statusUpdate.DeviceId);
                 }
-
-                // Process session updates
-                foreach (var sessionUpdate in statusUpdate.Sessions) {
-                    if (string.IsNullOrWhiteSpace(sessionUpdate.ProcessName)) {
-                        continue;
-                    }
-
-                    // Set volume for this process
-                    var volumeSuccess = await _audioManager.SetProcessVolumeByNameAsync(sessionUpdate.ProcessName, sessionUpdate.Volume);
-                    if (volumeSuccess) {
-                        _logger.LogInformation("Updated volume for {ProcessName} to {Volume:P0}",
-                            sessionUpdate.ProcessName, sessionUpdate.Volume);
-                    }
-                    else {
-                        _logger.LogWarning("Failed to update volume for process {ProcessName}", sessionUpdate.ProcessName);
-                    }
-
-                    // Set mute state for this process
-                    var muteSuccess = await _audioManager.MuteProcessByNameAsync(sessionUpdate.ProcessName, sessionUpdate.IsMuted);
-                    if (muteSuccess) {
-                        _logger.LogInformation("Updated mute state for {ProcessName} to {IsMuted}",
-                            sessionUpdate.ProcessName, sessionUpdate.IsMuted);
-                    }
-                    else {
-                        _logger.LogWarning("Failed to update mute state for process {ProcessName}", sessionUpdate.ProcessName);
-                    }
+                else {
+                    _logger.LogDebug("No changes applied - skipping status broadcast");
                 }
-
-                // Broadcast the updated status to confirm changes were applied
-                await BroadcastStatusAsync(StatusBroadcastReason.UpdateResponse, statusUpdate.RequestId, statusUpdate.DeviceId);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing status update");
