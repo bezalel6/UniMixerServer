@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 
 using UniMixerServer.Communication;
+using UniMixerServer.Communication.MessageProcessing;
 using UniMixerServer.Configuration;
 using UniMixerServer.Core;
 using UniMixerServer.Services;
@@ -85,19 +86,24 @@ namespace UniMixerServer {
                     // Register status update processor
                     services.AddSingleton<StatusUpdateProcessor>();
 
+                    // Register message processor for O(1) lookup
+                    services.AddSingleton<JsonMessageProcessor>();
+
                     // Register communication handlers conditionally
                     if (appConfig.EnableMqtt) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new MqttHandler(
                                 provider.GetRequiredService<ILogger<MqttHandler>>(),
-                                appConfig.Mqtt));
+                                appConfig.Mqtt,
+                                provider.GetRequiredService<JsonMessageProcessor>()));
                     }
 
                     if (appConfig.EnableSerial) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new SerialHandler(
                                 provider.GetRequiredService<ILogger<SerialHandler>>(),
-                                appConfig.Serial));
+                                appConfig.Serial,
+                                provider.GetRequiredService<JsonMessageProcessor>()));
                     }
 
                     // Register main service
