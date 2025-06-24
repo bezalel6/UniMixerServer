@@ -17,6 +17,11 @@ namespace UniMixerServer.Models {
         public string RequestId { get; set; } = string.Empty;
         public string DeviceId { get; set; } = string.Empty;
     }
+    public class AssetRequest {
+        public string MessageType { get; set; } = string.Empty;
+        public string RequestId { get; set; } = string.Empty;
+        public string DeviceId { get; set; } = string.Empty;
+    }
 
     public class SessionUpdate {
         public string ProcessName { get; set; } = string.Empty;
