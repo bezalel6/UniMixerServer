@@ -86,6 +86,9 @@ namespace UniMixerServer {
                     // Register status update processor
                     services.AddSingleton<StatusUpdateProcessor>();
 
+                    // Register asset service
+                    services.AddSingleton<IAssetService, AssetService>();
+
                     // Register message processor for O(1) lookup
                     services.AddSingleton<JsonMessageProcessor>();
 
@@ -193,6 +196,12 @@ namespace UniMixerServer {
                 }
 
                 Console.WriteLine("===============================\n");
+
+                // Setup cleanup for data loggers
+                AppDomain.CurrentDomain.ProcessExit += (s, e) => {
+                    Console.WriteLine("Cleaning up data loggers...");
+                    UniMixerServer.Services.OutgoingDataLogger.Dispose();
+                };
 
                 await host.RunAsync();
             }

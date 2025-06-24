@@ -19,6 +19,7 @@ namespace UniMixerServer.Services {
         private readonly AppConfig _config;
         private readonly IAudioManager _audioManager;
         private readonly StatusUpdateProcessor _statusUpdateProcessor;
+        private readonly IAssetService _assetService;
         private readonly List<ICommunicationHandler> _communicationHandlers;
         private Timer? _statusTimer;
         private Timer? _audioRefreshTimer;
@@ -29,11 +30,13 @@ namespace UniMixerServer.Services {
             IOptions<AppConfig> config,
             IAudioManager audioManager,
             StatusUpdateProcessor statusUpdateProcessor,
+            IAssetService assetService,
             IEnumerable<ICommunicationHandler> communicationHandlers) {
             _logger = logger;
             _config = config.Value;
             _audioManager = audioManager;
             _statusUpdateProcessor = statusUpdateProcessor;
+            _assetService = assetService;
             _communicationHandlers = communicationHandlers.ToList();
         }
 
@@ -132,6 +135,7 @@ namespace UniMixerServer.Services {
             foreach (var handler in _communicationHandlers) {
                 handler.StatusUpdateReceived += OnStatusUpdateReceived;
                 handler.StatusRequestReceived += OnStatusRequestReceived;
+                handler.AssetRequestReceived += OnAssetRequestReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
 
@@ -402,6 +406,33 @@ namespace UniMixerServer.Services {
         private void OnAudioSessionChanged(object? sender, AudioSessionChangedEventArgs e) {
             _logger.LogDebug("Audio sessions changed: {SessionCount} sessions", e.Sessions.Count);
             _lastKnownSessions = e.Sessions;
+        }
+
+        private async void OnAssetRequestReceived(object? sender, AssetRequestReceivedEventArgs e) {
+            try {
+                _logger.LogInformation("Processing asset request from {Source} - process: {ProcessName}",
+                    e.Source, e.AssetRequest.ProcessName);
+
+                // Get the asset response from the asset service
+                var assetResponse = await _assetService.GetAssetAsync(e.AssetRequest.ProcessName);
+
+                // Set the response metadata from the request
+                assetResponse.RequestId = e.AssetRequest.RequestId;
+                assetResponse.DeviceId = e.AssetRequest.DeviceId;
+
+                // Send the response through the communication handler that received the request
+                if (sender is ICommunicationHandler handler) {
+                    await handler.SendAssetAsync(assetResponse);
+                    _logger.LogInformation("Asset response sent for process: {ProcessName}, Success: {Success}",
+                        e.AssetRequest.ProcessName, assetResponse.Success);
+                }
+                else {
+                    _logger.LogWarning("Invalid sender type for asset request");
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing asset request");
+            }
         }
     }
 }

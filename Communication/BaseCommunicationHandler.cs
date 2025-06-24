@@ -20,6 +20,7 @@ namespace UniMixerServer.Communication {
 
         public event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
         public event EventHandler<StatusRequestReceivedEventArgs>? StatusRequestReceived;
+        public event EventHandler<AssetRequestReceivedEventArgs>? AssetRequestReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
         protected BaseCommunicationHandler(ILogger logger, IMessageProcessor messageProcessor) {
@@ -39,6 +40,7 @@ namespace UniMixerServer.Communication {
         public abstract Task StartAsync(CancellationToken cancellationToken = default);
         public abstract Task StopAsync(CancellationToken cancellationToken = default);
         public abstract Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
+        public abstract Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Processes incoming raw data using the message processor
@@ -114,7 +116,11 @@ namespace UniMixerServer.Communication {
                     _logger.LogInformation("AssetRequest from {Source} (Device: {DeviceId}, RequestId: {RequestId})",
                         message.SourceInfo, assetRequest.DeviceId, assetRequest.RequestId);
 
-                    // TODO: Add AssetRequestReceived event when needed
+                    AssetRequestReceived?.Invoke(this, new AssetRequestReceivedEventArgs {
+                        AssetRequest = assetRequest,
+                        Source = message.SourceInfo,
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    });
                 }
             }
             catch (Exception ex) {

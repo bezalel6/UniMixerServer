@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Core;
 
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
@@ -12,6 +14,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
         private readonly ILogger<JsonMessageProcessor> _logger;
         private readonly Dictionary<string, MessageHandler> _handlers;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly Logger _incomingDataLogger;
 
         public JsonMessageProcessor(ILogger<JsonMessageProcessor> logger) {
             _logger = logger;
@@ -20,6 +23,16 @@ namespace UniMixerServer.Communication.MessageProcessing {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true
             };
+
+            // Create dedicated logger for incoming data
+            _incomingDataLogger = new LoggerConfiguration()
+                .WriteTo.File(
+                    "logs/incoming/incoming-data-.log",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 30,
+                    fileSizeLimitBytes: 50 * 1024 * 1024, // 50MB
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Source}] {RawData}{NewLine}")
+                .CreateLogger();
         }
 
         public void RegisterHandler(string messageType, MessageHandler handler) {
@@ -39,6 +52,9 @@ namespace UniMixerServer.Communication.MessageProcessing {
             if (string.IsNullOrWhiteSpace(rawData)) {
                 return;
             }
+
+            // Log all incoming raw data to dedicated log file
+            _incomingDataLogger.Information("Incoming data from {Source}: {RawData}", sourceInfo, rawData);
 
             try {
                 // Step 1: Generic JSON parsing
@@ -81,6 +97,10 @@ namespace UniMixerServer.Communication.MessageProcessing {
                 _logger.LogError(ex, "Error processing message from {Source}: {DataLength} chars",
                     sourceInfo, rawData.Length);
             }
+        }
+
+        public void Dispose() {
+            _incomingDataLogger?.Dispose();
         }
     }
 }

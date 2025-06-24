@@ -30,7 +30,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
     /// Message processor that handles O(1) lookup and dispatch
     /// </summary>
-    public interface IMessageProcessor {
+    public interface IMessageProcessor : IDisposable {
         /// <summary>
         /// Registers a handler for a specific message type
         /// </summary>

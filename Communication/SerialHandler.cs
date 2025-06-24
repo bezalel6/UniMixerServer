@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using UniMixerServer.Configuration;
 using UniMixerServer.Models;
 using UniMixerServer.Communication.MessageProcessing;
+using UniMixerServer.Services;
 
 namespace UniMixerServer.Communication {
     /// <summary>
@@ -111,10 +112,54 @@ namespace UniMixerServer.Communication {
                 logMessage += ")";
 
                 _logger.LogDebug(logMessage);
+
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(message.TrimEnd('\n'), "Serial");
+
                 await Task.Run(() => _serialPort!.Write(message), cancellationToken);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via serial port");
+            }
+        }
+
+        public override async Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default) {
+            if (!IsConnected) {
+                _logger.LogWarning("Cannot send asset - Serial port not connected");
+                return;
+            }
+
+            try {
+                // For serial communication, we'll send asset data as base64 encoded JSON
+                var response = new {
+                    assetResponse.MessageType,
+                    assetResponse.RequestId,
+                    assetResponse.DeviceId,
+                    assetResponse.ProcessName,
+                    assetResponse.Metadata,
+                    AssetData = assetResponse.AssetData != null ? Convert.ToBase64String(assetResponse.AssetData) : null,
+                    assetResponse.Success,
+                    assetResponse.ErrorMessage
+                };
+
+                var json = JsonSerializer.Serialize(response, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+                var message = $"{json}\n";
+
+                _logger.LogDebug("Sending asset: {ProcessName}, {Size} bytes, {MessageLength} chars",
+                    assetResponse.ProcessName,
+                    assetResponse.AssetData?.Length ?? 0,
+                    message.Length);
+
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(message.TrimEnd('\n'), "Serial");
+
+                await Task.Run(() => _serialPort!.Write(message), cancellationToken);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error sending asset response via serial port");
             }
         }
 

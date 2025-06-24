@@ -38,6 +38,14 @@ namespace UniMixerServer.Communication {
         Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Sends an asset response through this communication channel
+        /// </summary>
+        /// <param name="assetResponse">Asset response to send</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the send operation</returns>
+        Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Event fired when a status update is received
         /// </summary>
         event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
@@ -46,6 +54,11 @@ namespace UniMixerServer.Communication {
         /// Event fired when a status request is received
         /// </summary>
         event EventHandler<StatusRequestReceivedEventArgs>? StatusRequestReceived;
+
+        /// <summary>
+        /// Event fired when an asset request is received
+        /// </summary>
+        event EventHandler<AssetRequestReceivedEventArgs>? AssetRequestReceived;
 
         /// <summary>
         /// Event fired when connection status changes
@@ -61,6 +74,12 @@ namespace UniMixerServer.Communication {
 
     public class StatusRequestReceivedEventArgs : EventArgs {
         public StatusRequest StatusRequest { get; set; } = new StatusRequest();
+        public string Source { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    public class AssetRequestReceivedEventArgs : EventArgs {
+        public AssetRequest AssetRequest { get; set; } = new AssetRequest();
         public string Source { get; set; } = string.Empty;
         public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }

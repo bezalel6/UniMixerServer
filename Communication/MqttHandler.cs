@@ -10,6 +10,7 @@ using MQTTnet.Extensions.ManagedClient;
 using UniMixerServer.Configuration;
 using UniMixerServer.Models;
 using UniMixerServer.Communication.MessageProcessing;
+using UniMixerServer.Services;
 
 namespace UniMixerServer.Communication {
     /// <summary>
@@ -103,11 +104,58 @@ namespace UniMixerServer.Communication {
                     .WithRetainFlag(false)
                     .Build();
 
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(json, $"MQTT:{_config.Topics.StatusTopic}");
+
                 await _mqttClient.EnqueueAsync(message);
                 _logger.LogDebug("Status message sent to MQTT topic: {Topic}", _config.Topics.StatusTopic);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via MQTT");
+            }
+        }
+
+        public override async Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default) {
+            if (_mqttClient == null || !IsConnected) {
+                _logger.LogWarning("Cannot send asset - MQTT client not connected");
+                return;
+            }
+
+            try {
+                // For MQTT, send asset data as base64 encoded JSON
+                var response = new {
+                    assetResponse.MessageType,
+                    assetResponse.RequestId,
+                    assetResponse.DeviceId,
+                    assetResponse.ProcessName,
+                    assetResponse.Metadata,
+                    AssetData = assetResponse.AssetData != null ? Convert.ToBase64String(assetResponse.AssetData) : null,
+                    assetResponse.Success,
+                    assetResponse.ErrorMessage
+                };
+
+                var json = JsonSerializer.Serialize(response, new JsonSerializerOptions {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                // Use assets topic (could be configured in config later)
+                var assetsTopic = _config.Topics.StatusTopic.Replace("/status", "/assets");
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic(assetsTopic)
+                    .WithPayload(json)
+                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
+                    .WithRetainFlag(false)
+                    .Build();
+
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(json, $"MQTT:{assetsTopic}");
+
+                await _mqttClient.EnqueueAsync(message);
+                _logger.LogDebug("Asset response sent to MQTT topic: {Topic} for process: {ProcessName}",
+                    assetsTopic, assetResponse.ProcessName);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error sending asset response via MQTT");
             }
         }
 
