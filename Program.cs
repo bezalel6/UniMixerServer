@@ -87,7 +87,11 @@ namespace UniMixerServer {
                     services.AddSingleton<StatusUpdateProcessor>();
 
                     // Register asset service
-                    services.AddSingleton<IAssetService, AssetService>();
+                    services.AddSingleton<IAssetService>(provider => {
+                        var logger = provider.GetRequiredService<ILogger<AssetService>>();
+                        var iconExtractor = provider.GetRequiredService<IProcessIconExtractor>();
+                        return new AssetService(logger, iconExtractor);
+                    });
 
                     // Register message processor for O(1) lookup
                     services.AddSingleton<JsonMessageProcessor>();
