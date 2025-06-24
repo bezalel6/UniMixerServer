@@ -72,10 +72,14 @@ namespace UniMixerServer {
                     services.Configure<AppConfig>(configuration);
                     services.AddSingleton(appConfig);
 
+                    // Register process icon extractor
+                    services.AddSingleton<IProcessIconExtractor, ProcessIconExtractor>();
+
                     // Register core services
                     services.AddSingleton<IAudioManager>(provider => {
                         var logger = provider.GetRequiredService<ILogger<AudioManager>>();
-                        return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging);
+                        var iconExtractor = provider.GetRequiredService<IProcessIconExtractor>();
+                        return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging, iconExtractor);
                     });
 
                     // Register status update processor

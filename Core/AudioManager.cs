@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Text.RegularExpressions;
+using UniMixerServer.Services;
 
 #if WINDOWS
 using System.Runtime.Versioning;
@@ -98,12 +99,14 @@ namespace UniMixerServer.Core {
         private readonly object _lock = new object();
         private bool _disposed = false;
         private readonly bool _enableDetailedLogging;
+        private readonly IProcessIconExtractor? _iconExtractor;
 
         public event EventHandler<AudioSessionChangedEventArgs>? AudioSessionChanged;
 
-        public AudioManager(ILogger<AudioManager> logger, bool enableDetailedLogging = false) {
+        public AudioManager(ILogger<AudioManager> logger, bool enableDetailedLogging = false, IProcessIconExtractor? iconExtractor = null) {
             _logger = logger;
             _enableDetailedLogging = enableDetailedLogging;
+            _iconExtractor = iconExtractor;
 
             if (_enableDetailedLogging) {
                 _logger.LogInformation("AudioManager initialized with detailed logging enabled");
@@ -1380,6 +1383,25 @@ namespace UniMixerServer.Core {
                             if (!MatchesProcessNameFilter(processName, config)) {
                                 LogDetailed("Skipping session {SessionIndex} due to process name filter: ProcessName='{ProcessName}' did not match filters", i, processName);
                                 continue;
+                            }
+
+                            // Enhance icon path if we have the icon extractor service (non-blocking)
+                            if (_iconExtractor != null && string.IsNullOrEmpty(iconPath)) {
+                                // Fire-and-forget icon extraction - don't block session enumeration
+                                Task.Run(async () => {
+                                    try {
+                                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                                        var enhancedIconPath = await _iconExtractor.GetProcessIconPathAsync(processId, processName).WaitAsync(cts.Token);
+                                        if (!string.IsNullOrEmpty(enhancedIconPath)) {
+                                            LogDetailed("Enhanced icon path for {ProcessName}: {IconPath}", processName, enhancedIconPath);
+                                            // Note: We don't update the session here since it's already created
+                                            // The UI will handle icon loading separately
+                                        }
+                                    }
+                                    catch {
+                                        // Ignore errors in background icon extraction
+                                    }
+                                });
                             }
 
                             // Create an AudioSession object with all the collected information

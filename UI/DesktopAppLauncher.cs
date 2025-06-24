@@ -11,6 +11,7 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using UniMixerServer.Services;
 
 namespace UniMixerServer.UI
 {
@@ -77,7 +78,7 @@ namespace UniMixerServer.UI
     }
 
     // Lightweight logger for desktop application
-    public class DesktopLogger : ILogger<AudioManager>
+    public class DesktopLogger<T> : ILogger<T>
     {
         private readonly string _categoryName;
 
@@ -104,10 +105,17 @@ namespace UniMixerServer.UI
         }
     }
 
+    // Non-generic version for backward compatibility
+    public class DesktopLogger : DesktopLogger<object>
+    {
+        public DesktopLogger(string categoryName) : base(categoryName) { }
+    }
+
     public class ModernAudioMixerForm : Form
     {
         // Core components
         private IAudioManager? _audioManager;
+        private IProcessIconExtractor? _iconExtractor;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
         private readonly System.Windows.Forms.Timer _uiUpdateTimer;
 
@@ -1010,19 +1018,26 @@ namespace UniMixerServer.UI
                         return;
                     }
 
+                    taskLogger.LogInformation("Starting ProcessIconExtractor initialization");
+                    SafeUpdateUI(() => _statusLabel.Text = "🎨 Creating icon extractor...");
+
+                    // Initialize ProcessIconExtractor first
+                    _iconExtractor = new ProcessIconExtractor(new DesktopLogger<ProcessIconExtractor>("ProcessIconExtractor"));
+                    taskLogger.LogInformation("ProcessIconExtractor initialized successfully");
+
                     taskLogger.LogInformation("Starting AudioManager initialization");
                     SafeUpdateUI(() => _statusLabel.Text = "🔧 Creating AudioManager...");
 
                     try
                     {
-                        var audioManagerLogger = new DesktopLogger("AudioManager");
-                        audioManagerLogger.LogInformation("Creating AudioManager instance");
+                        var audioManagerLogger = new DesktopLogger<AudioManager>("AudioManager");
+                        audioManagerLogger.LogInformation("Creating AudioManager instance with icon extractor");
 
-                        // CRITICAL FIX: Create AudioManager with timeout
+                        // CRITICAL FIX: Create AudioManager with timeout and icon extractor
                         var createManagerTask = Task.Run(() =>
                         {
-                            audioManagerLogger.LogInformation("Instantiating AudioManager");
-                            return new AudioManager(audioManagerLogger, enableDetailedLogging: false);
+                            audioManagerLogger.LogInformation("Instantiating AudioManager with icon support");
+                            return new AudioManager(audioManagerLogger, enableDetailedLogging: false, _iconExtractor);
                         });
 
                         using var createTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -1030,7 +1045,7 @@ namespace UniMixerServer.UI
                             _cancellationTokenSource.Token, createTimeout.Token);
 
                         _audioManager = await createManagerTask.WaitAsync(createCombined.Token);
-                        audioManagerLogger.LogInformation("AudioManager created successfully");
+                        audioManagerLogger.LogInformation("AudioManager created successfully with icon support");
                     }
                     catch (OperationCanceledException)
                     {
@@ -1580,15 +1595,98 @@ namespace UniMixerServer.UI
                 };
                 cardLogger.LogDebug("Main card panel created");
 
-                // CRITICAL FIX: Simplified card with minimal controls
+                // Create process icon display with immediate default icon
+                var iconPanel = new PictureBox
+                {
+                    Size = new Size(32, 32),
+                    Location = new Point(0, 8),
+                    SizeMode = PictureBoxSizeMode.StretchImage,
+                    BackColor = Color.Transparent
+                };
+
+                // Set a simple default icon immediately (create inline to avoid delays)
+                try
+                {
+                    var defaultBitmap = new Bitmap(32, 32);
+                    using (var g = Graphics.FromImage(defaultBitmap))
+                    {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        g.FillEllipse(Brushes.DarkBlue, 4, 4, 24, 24);
+                        g.FillEllipse(Brushes.LightBlue, 8, 8, 16, 16);
+                        using (var font = new Font("Segoe UI", 8, FontStyle.Bold))
+                        {
+                            g.DrawString("♪", font, Brushes.White, new PointF(11, 9));
+                        }
+                    }
+                    iconPanel.Image = defaultBitmap;
+                }
+                catch
+                {
+                    // If even this fails, just leave it empty
+                }
+
+                // Schedule icon loading for later (fire-and-forget)
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Small delay to let UI render first
+                        await Task.Delay(50);
+                        
+                        Image? processIcon = null;
+                        
+                        // First try to get from existing icon path
+                        if (!string.IsNullOrEmpty(session.IconPath) && File.Exists(session.IconPath))
+                        {
+                            processIcon = Image.FromFile(session.IconPath);
+                        }
+                        // Fallback to icon extractor (with timeout)
+                        else if (_iconExtractor != null)
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                            try
+                            {
+                                var iconTask = _iconExtractor.GetProcessIconImageAsync(session.ProcessId, session.ProcessName);
+                                processIcon = await iconTask.WaitAsync(cts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                // Timeout - keep default icon
+                                return;
+                            }
+                        }
+
+                        // Update icon if we found one (check if control still exists)
+                        if (processIcon != null && !iconPanel.IsDisposed && iconPanel.IsHandleCreated)
+                        {
+                            if (iconPanel.InvokeRequired)
+                            {
+                                iconPanel.BeginInvoke(new Action(() =>
+                                {
+                                    if (!iconPanel.IsDisposed)
+                                        iconPanel.Image = processIcon;
+                                }));
+                            }
+                            else
+                            {
+                                iconPanel.Image = processIcon;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore all errors in background icon loading
+                    }
+                });
+
                 cardLogger.LogDebug("Creating process label");
                 var processLabel = new Label
                 {
-                    Text = $"🎵 {session.ProcessName}",
+                    Text = session.ProcessName,
                     Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                     ForeColor = TextPrimary,
-                    Location = new Point(0, 0),
-                    Size = new Size(300, 20),
+                    Location = new Point(40, 0), // Offset for icon
+                    Size = new Size(260, 20),
                     AutoEllipsis = true
                 };
                 cardLogger.LogDebug("Process label created");
@@ -1599,7 +1697,7 @@ namespace UniMixerServer.UI
                     Text = session.IsMuted ? "🔇 MUTED" : $"🔊 {session.Volume:P0}",
                     Font = new Font("Segoe UI", 10F),
                     ForeColor = session.IsMuted ? AccentRed : GetVolumeColor(session.Volume),
-                    Location = new Point(0, 25),
+                    Location = new Point(40, 25), // Offset for icon
                     Size = new Size(200, 20),
                     AutoEllipsis = true
                 };
@@ -1611,15 +1709,30 @@ namespace UniMixerServer.UI
                     Text = $"PID: {session.ProcessId}",
                     Font = new Font("Segoe UI", 9F),
                     ForeColor = TextSecondary,
-                    Location = new Point(0, 50),
+                    Location = new Point(40, 50), // Offset for icon
                     Size = new Size(150, 16),
                     AutoEllipsis = true
                 };
                 cardLogger.LogDebug("PID label created");
 
+                // Status indicator
+                var statusIndicator = new Label
+                {
+                    Text = "●",
+                    Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                    ForeColor = session.SessionState == 1 ? AccentGreen : AccentOrange,
+                    Location = new Point(250, 5),
+                    Size = new Size(16, 16),
+                    TextAlign = ContentAlignment.MiddleCenter
+                };
+
                 cardLogger.LogDebug("Adding controls to card");
-                card.Controls.AddRange(new Control[] { processLabel, volumeLabel, pidLabel });
+                card.Controls.AddRange(new Control[] { iconPanel, processLabel, volumeLabel, pidLabel, statusIndicator });
                 cardLogger.LogDebug("Controls added to card");
+
+                // Add hover effects
+                card.MouseEnter += (s, e) => card.BackColor = ControlPaint.Light(AccentBg, 0.1f);
+                card.MouseLeave += (s, e) => card.BackColor = AccentBg;
 
                 cardLogger.LogDebug($"Session card created successfully for: {session.ProcessName}");
                 return card;
