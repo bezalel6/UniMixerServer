@@ -96,6 +96,11 @@ namespace UniMixerServer.Communication {
             }
 
             try {
+                // Ensure MessageType is set
+                if (string.IsNullOrEmpty(status.MessageType)) {
+                    status.MessageType = "StatusMessage";
+                }
+
                 var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -130,7 +135,13 @@ namespace UniMixerServer.Communication {
             }
 
             try {
+                // Ensure MessageType is set
+                if (string.IsNullOrEmpty(assetResponse.MessageType)) {
+                    assetResponse.MessageType = "AssetResponse";
+                }
+
                 // For serial communication, we'll send asset data as base64 encoded JSON
+                // Create a serializable version with base64 encoded asset data
                 var response = new {
                     assetResponse.MessageType,
                     assetResponse.RequestId,

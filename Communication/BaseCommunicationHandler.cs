@@ -33,6 +33,7 @@ namespace UniMixerServer.Communication {
 
         private void RegisterMessageHandlers() {
             _messageProcessor.RegisterHandler("StatusUpdate", HandleStatusUpdateAsync);
+            _messageProcessor.RegisterHandler("StatusMessage", HandleStatusUpdateAsync);
             _messageProcessor.RegisterHandler("GetStatus", HandleStatusRequestAsync);
             _messageProcessor.RegisterHandler("GetAssets", HandleAssetRequestAsync);
         }
