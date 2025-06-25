@@ -338,7 +338,17 @@ namespace UniMixerServer.Services {
 
                 // Convert image to required format
                 using (iconImage) {
-                    return ConvertImageToFormat(iconImage, format);
+                    try {
+                        return ConvertImageToFormat(iconImage, format);
+                    }
+                    catch (ArgumentException ex) {
+                        _logger.LogWarning($"Extracted icon for process '{processName}' is invalid or corrupted: {ex.Message}");
+                        return null;
+                    }
+                    catch (InvalidOperationException ex) {
+                        _logger.LogWarning($"Failed to convert icon for process '{processName}': {ex.Message}");
+                        return null;
+                    }
                 }
             }
             catch (Exception ex) {
@@ -384,28 +394,80 @@ namespace UniMixerServer.Services {
         }
 
         private byte[] ConvertImageToFormat(Image image, string format) {
+            // Validate image before processing
+            if (image == null) {
+                throw new ArgumentNullException(nameof(image), "Image cannot be null");
+            }
+
+            try {
+                // Test if image is valid by accessing its properties
+                var width = image.Width;
+                var height = image.Height;
+                var pixelFormat = image.PixelFormat;
+
+                // Validate reasonable dimensions
+                if (width <= 0 || height <= 0 || width > 4096 || height > 4096) {
+                    throw new ArgumentException($"Image has invalid dimensions: {width}x{height}");
+                }
+            }
+            catch (Exception ex) {
+                throw new ArgumentException($"Invalid or corrupted image: {ex.Message}", nameof(image), ex);
+            }
+
             // For now, convert to PNG format regardless of the requested format
             // In a real implementation, you might want to convert to specific formats like LVGL binary
             using (var memoryStream = new MemoryStream()) {
-                // Ensure image is 32x32 for consistency
-                using (var resizedImage = ResizeImage(image, 32, 32)) {
-                    resizedImage.Save(memoryStream, ImageFormat.Png);
+                try {
+                    // Ensure image is 32x32 for consistency
+                    using (var resizedImage = ResizeImage(image, 32, 32)) {
+                        resizedImage.Save(memoryStream, ImageFormat.Png);
+                    }
+                    return memoryStream.ToArray();
                 }
-                return memoryStream.ToArray();
+                catch (Exception ex) {
+                    throw new InvalidOperationException($"Failed to convert image to format '{format}': {ex.Message}", ex);
+                }
             }
         }
 
         private Image ResizeImage(Image image, int width, int height) {
-            var destImage = new Bitmap(width, height);
-            using (var graphics = Graphics.FromImage(destImage)) {
+            if (image == null) {
+                throw new ArgumentNullException(nameof(image), "Source image cannot be null");
+            }
+
+            if (width <= 0 || height <= 0) {
+                throw new ArgumentException("Width and height must be positive values");
+            }
+
+            Bitmap? destImage = null;
+            Graphics? graphics = null;
+
+            try {
+                destImage = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+                graphics = Graphics.FromImage(destImage);
+
                 graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                 graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
                 graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
 
+                // Clear the destination with transparent background
+                graphics.Clear(Color.Transparent);
+
+                // Draw the source image
                 graphics.DrawImage(image, 0, 0, width, height);
+
+                var result = destImage;
+                destImage = null; // Prevent disposal in finally block
+                return result;
             }
-            return destImage;
+            catch (Exception ex) {
+                throw new InvalidOperationException($"Failed to resize image from {image.Width}x{image.Height} to {width}x{height}: {ex.Message}", ex);
+            }
+            finally {
+                graphics?.Dispose();
+                destImage?.Dispose();
+            }
         }
     }
 }

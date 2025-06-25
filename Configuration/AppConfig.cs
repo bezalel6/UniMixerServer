@@ -77,6 +77,44 @@ namespace UniMixerServer.Configuration {
         public int WriteTimeoutMs { get; set; } = 1000;
         public bool EnableAutoReconnect { get; set; } = true;
         public int ReconnectDelayMs { get; set; } = 5000;
+        public BinaryProtocolConfig BinaryProtocol { get; set; } = new BinaryProtocolConfig();
+    }
+
+    public class BinaryProtocolConfig {
+        /// <summary>
+        /// Enable binary framed protocol instead of text-based JSON
+        /// </summary>
+        public bool EnableBinaryProtocol { get; set; } = true;
+
+        /// <summary>
+        /// Enable automatic protocol detection (fallback to text if binary fails)
+        /// </summary>
+        public bool EnableProtocolAutoDetection { get; set; } = true;
+
+        /// <summary>
+        /// Maximum payload size in bytes (ESP32 limit)
+        /// </summary>
+        public int MaxPayloadSize { get; set; } = 4096;
+
+        /// <summary>
+        /// Message timeout in milliseconds for incomplete frames
+        /// </summary>
+        public int MessageTimeoutMs { get; set; } = 1000;
+
+        /// <summary>
+        /// Enable detailed binary protocol logging for debugging
+        /// </summary>
+        public bool EnableDetailedLogging { get; set; } = false;
+
+        /// <summary>
+        /// Enable protocol statistics collection and logging
+        /// </summary>
+        public bool EnableStatistics { get; set; } = true;
+
+        /// <summary>
+        /// Statistics logging interval in milliseconds (0 = disabled)
+        /// </summary>
+        public int StatisticsLogIntervalMs { get; set; } = 60000; // Log stats every minute
     }
 
     public class LoggingConfig {
