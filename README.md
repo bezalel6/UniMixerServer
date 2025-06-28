@@ -312,3 +312,121 @@ For issues and questions:
 ---
 
 **Note**: This application requires administrator privileges to interact with Windows audio sessions. Always run with elevated permissions for full functionality.
+
+## Dependencies
+
+### LVGL Image Converter Setup
+
+This application uses the official LVGL image converter for proper LVGL 9 binary format generation.
+
+#### Installation Steps:
+
+1. **Install Node.js** (if not already installed):
+   - Download from: https://nodejs.org/
+   - Or use package manager: `winget install OpenJS.NodeJS`
+
+2. **Install TypeScript and ts-node globally**:
+   ```bash
+   npm install -g typescript ts-node
+   ```
+
+3. **Clone the official LVGL image converter**:
+   ```bash
+   git clone https://github.com/lvgl/lv_img_conv.git
+   cd lv_img_conv
+   npm install
+   ```
+
+4. **Place the converter in one of these locations**:
+   - `./tools/lv_img_conv/` (relative to UniMixerServer.exe)
+   - `./lv_img_conv/` (relative to UniMixerServer.exe)
+   - `C:\tools\lv_img_conv\` (Windows)
+   - `/usr/local/bin/lv_img_conv` (Linux)
+
+5. **Verify installation**:
+   ```bash
+   ts-node cli.ts --help
+   ```
+
+#### Alternative: Quick Setup Script
+
+For Windows PowerShell:
+```powershell
+# Install global dependencies
+npm install -g typescript ts-node
+
+# Navigate to your UniMixerServer directory
+mkdir tools
+cd tools
+git clone https://github.com/lvgl/lv_img_conv.git
+cd lv_img_conv
+npm install
+
+# Test the installation
+ts-node cli.ts --help
+
+cd ../..
+```
+
+For Linux/macOS:
+```bash
+# Install global dependencies
+npm install -g typescript ts-node
+
+# Navigate to your UniMixerServer directory
+mkdir -p tools
+cd tools
+git clone https://github.com/lvgl/lv_img_conv.git
+cd lv_img_conv
+npm install
+
+# Test the installation
+ts-node cli.ts --help
+
+cd ../..
+```
+
+#### Usage Example
+The converter will be called automatically with commands like:
+```bash
+ts-node cli.ts input.png -f -c CF_TRUE_COLOR_ALPHA -t bin --binary-format 565
+```
+
+The application will automatically detect the converter and use it for generating proper LVGL 9 binary images.
+
+#### Troubleshooting
+
+**Error: "The system cannot find the file specified" for 'ts-node'**
+
+This means ts-node is not installed or not in your system PATH. To fix:
+
+1. **Install/reinstall global dependencies**:
+   ```bash
+   npm install -g typescript ts-node
+   ```
+
+2. **Verify installation**:
+   ```bash
+   ts-node --version
+   node --version
+   ```
+
+3. **Check PATH** - Make sure npm's global bin directory is in your PATH:
+   - Windows: Usually `%APPDATA%\npm` or `%USERPROFILE%\AppData\Roaming\npm`
+   - Linux/macOS: Usually `/usr/local/bin` or `~/.npm-global/bin`
+
+4. **Restart your terminal/IDE** after installing global packages
+
+**Error: "No such file or directory" for converter path**
+
+Make sure the LVGL converter is in one of the expected locations with the correct structure:
+```
+tools/lv_img_conv/lib/
+├── cli.ts
+├── lv_img_conv.js (optional, for fallback)
+└── ... other files
+```
+
+**Alternative: Use pre-compiled version**
+
+If you continue having issues with ts-node, the application will automatically fall back to using `node lv_img_conv.js` if available.

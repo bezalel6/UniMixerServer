@@ -35,7 +35,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
                 .WriteTo.File(
                     "logs/incoming/incoming-data-.log",
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 30,
+                    retainedFileCountLimit: 3,
                     fileSizeLimitBytes: 50 * 1024 * 1024, // 50MB
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Source}] {RawData}{NewLine}")
                 .CreateLogger();

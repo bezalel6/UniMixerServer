@@ -22,17 +22,22 @@ namespace UniMixerServer.Services {
         private readonly ILogger<AssetService> _logger;
         private readonly string _assetsDirectory;
         private readonly string _metadataDirectory;
+        private readonly string _tempDirectory;
         private readonly IProcessIconExtractor? _iconExtractor;
+        private readonly LogoFormat _logoFormat;
 
-        public AssetService(ILogger<AssetService> logger, IProcessIconExtractor? iconExtractor = null) {
+        public AssetService(ILogger<AssetService> logger, IProcessIconExtractor? iconExtractor = null, LogoFormat? logoFormat = null) {
             _logger = logger;
             _iconExtractor = iconExtractor;
+            _logoFormat = logoFormat ?? new LogoFormat();
             _assetsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "assets");
             _metadataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "metadata");
+            _tempDirectory = Path.Combine(Path.GetTempPath(), "UniMixer", "ImageConversion");
 
             // Ensure directories exist
             Directory.CreateDirectory(_assetsDirectory);
             Directory.CreateDirectory(_metadataDirectory);
+            Directory.CreateDirectory(_tempDirectory);
         }
 
         public async Task<AssetResponse> GetAssetAsync(string processName) {
@@ -50,7 +55,7 @@ namespace UniMixerServer.Services {
                     // response.ErrorMessage = $"No metadata found for process: {processName}";
                     // return response;
                     metadata = new LogoMetadata();
-                    metadata.Format = "lvgl_bin";
+                    metadata.Format = _logoFormat.Format;
                 }
 
                 // Load asset data using the actual process name that was found
@@ -58,17 +63,17 @@ namespace UniMixerServer.Services {
                 if (!File.Exists(assetPath)) {
                     // Fallback: Try to extract icon dynamically
                     _logger.LogInformation($"No stored asset found for {processName}, attempting dynamic extraction");
-                    var extractedAsset = await TryExtractProcessIconAsync(processName, metadata.Format);
+                    var extractedAsset = await TryExtractProcessIconAsync(processName, _logoFormat.Format);
                     if (extractedAsset != null) {
                         response.Metadata = new LogoMetadata {
                             ProcessName = processName,
-                            Format = metadata.Format,
+                            Format = _logoFormat.Format,
                             FileSize = (uint)extractedAsset.Length,
                             Checksum = CalculateMD5(extractedAsset),
                             ModifiedTimestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                             UserFlags = new UserFlags { AutoDetected = true },
-                            Width = 32, // Default icon size
-                            Height = 32,
+                            Width = (ushort)_logoFormat.Width,
+                            Height = (ushort)_logoFormat.Height,
                             Version = 1
                         };
                         response.AssetData = extractedAsset;
@@ -173,6 +178,7 @@ namespace UniMixerServer.Services {
             return format.ToLowerInvariant() switch {
                 "lvgl_bin" => "bin",
                 "lvgl_indexed" => "idx",
+                "png" => "png",
                 _ => "dat"
             };
         }
@@ -316,43 +322,64 @@ namespace UniMixerServer.Services {
         }
 
         private async Task<byte[]?> TryExtractProcessIconAsync(string processName, string format) {
+            _logger.LogInformation($"Starting dynamic icon extraction for process: {processName}");
+
             if (_iconExtractor == null) {
-                _logger.LogDebug("ProcessIconExtractor not available for dynamic icon extraction");
+                _logger.LogWarning("ProcessIconExtractor not available for dynamic icon extraction");
                 return null;
             }
 
             try {
+                _logger.LogInformation($"Searching for running process with name: {processName}");
+
                 // Find running processes by name
                 var processId = FindProcessIdByName(processName);
                 if (processId == null) {
-                    _logger.LogDebug($"No running process found with name: {processName}");
+                    _logger.LogWarning($"No running process found with name: {processName}");
+                    _logger.LogInformation("This means the process is not currently running, so we cannot extract its icon");
                     return null;
                 }
+
+                _logger.LogInformation($"Found running process: {processName} (PID: {processId.Value})");
+                _logger.LogInformation($"Attempting to extract icon using ProcessIconExtractor...");
 
                 // Extract icon using ProcessIconExtractor
                 var iconImage = await _iconExtractor.GetProcessIconImageAsync(processId.Value, processName);
                 if (iconImage == null) {
-                    _logger.LogDebug($"Failed to extract icon for process: {processName}");
+                    _logger.LogWarning($"ProcessIconExtractor failed to extract icon for process: {processName} (PID: {processId.Value})");
+                    _logger.LogWarning("This could be due to access permissions, missing executable, or other system-level issues");
                     return null;
                 }
 
-                // Convert image to required format
+
+
+                _logger.LogInformation($"Successfully extracted icon for process: {processName}");
+
+                // Convert image to required format  
                 using (iconImage) {
+                    _logger.LogInformation($"  Icon dimensions: {iconImage.Width}x{iconImage.Height}");
+                    _logger.LogInformation($"  Icon pixel format: {iconImage.PixelFormat}");
+                    _logger.LogInformation($"Now converting icon to LVGL format: {format}");
+
                     try {
-                        return ConvertImageToFormat(iconImage, format);
+                        var result = await ConvertImageToFormatAsync(iconImage, format);
+                        _logger.LogInformation($"Successfully converted extracted icon to LVGL format ({result?.Length ?? 0} bytes)");
+                        return result;
                     }
                     catch (ArgumentException ex) {
-                        _logger.LogWarning($"Extracted icon for process '{processName}' is invalid or corrupted: {ex.Message}");
+                        _logger.LogError($"Extracted icon for process '{processName}' is invalid or corrupted: {ex.Message}");
+                        _logger.LogError("The icon extraction succeeded but the image data is corrupted");
                         return null;
                     }
                     catch (InvalidOperationException ex) {
-                        _logger.LogWarning($"Failed to convert icon for process '{processName}': {ex.Message}");
+                        _logger.LogError($"Failed to convert extracted icon for process '{processName}': {ex.Message}");
+                        _logger.LogError("The icon extraction succeeded but LVGL conversion failed");
                         return null;
                     }
                 }
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, $"Error during dynamic icon extraction for process: {processName}");
+                _logger.LogError(ex, $"Critical error during dynamic icon extraction for process: {processName}");
                 return null;
             }
         }
@@ -393,7 +420,7 @@ namespace UniMixerServer.Services {
             }
         }
 
-        private byte[] ConvertImageToFormat(Image image, string format) {
+        private async Task<byte[]> ConvertImageToFormatAsync(Image image, string format) {
             // Validate image before processing
             if (image == null) {
                 throw new ArgumentNullException(nameof(image), "Image cannot be null");
@@ -414,19 +441,283 @@ namespace UniMixerServer.Services {
                 throw new ArgumentException($"Invalid or corrupted image: {ex.Message}", nameof(image), ex);
             }
 
-            // For now, convert to PNG format regardless of the requested format
-            // In a real implementation, you might want to convert to specific formats like LVGL binary
-            using (var memoryStream = new MemoryStream()) {
-                try {
-                    // Ensure image is 32x32 for consistency
-                    using (var resizedImage = ResizeImage(image, 32, 32)) {
-                        resizedImage.Save(memoryStream, ImageFormat.Png);
+            try {
+                // Resize image to desired format size
+                using (var resizedImage = ResizeImage(image, _logoFormat.Width, _logoFormat.Height)) {
+                    if (format.ToLowerInvariant() == "png") {
+                        return ConvertToPng(resizedImage);
                     }
-                    return memoryStream.ToArray();
+                    else {
+                        return await ConvertToLvglBinaryAsync(resizedImage, format);
+                    }
                 }
-                catch (Exception ex) {
-                    throw new InvalidOperationException($"Failed to convert image to format '{format}': {ex.Message}", ex);
+            }
+            catch (Exception ex) {
+                if (format.ToLowerInvariant() == "png") {
+                    throw new InvalidOperationException($"Failed to convert image to PNG format: {ex.Message}.", ex);
                 }
+                else {
+                    throw new InvalidOperationException($"Failed to convert image to LVGL binary format: {ex.Message}. Please ensure the LVGL image converter is properly installed (see README.md).", ex);
+                }
+            }
+        }
+
+        private async Task<byte[]> ConvertToLvglBinaryAsync(Image image, string format) {
+            // Use permanent storage with descriptive names for debugging
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var debugId = Guid.NewGuid().ToString("N")[..6];
+            var debugDirectory = Path.Combine(_assetsDirectory, "debug", "lvgl_conversion");
+            Directory.CreateDirectory(debugDirectory);
+
+            var inputFile = Path.Combine(debugDirectory, $"input_{timestamp}_{debugId}.png");
+            var outputFile = Path.Combine(debugDirectory, $"output_{timestamp}_{debugId}.bin");
+
+            _logger.LogInformation($"Starting LVGL conversion with permanent files for debugging:");
+            _logger.LogInformation($"  Input file: {inputFile}");
+            _logger.LogInformation($"  Expected output file: {outputFile}");
+            _logger.LogInformation($"  Format: {format}");
+            _logger.LogInformation($"  Image dimensions: {image.Width}x{image.Height}");
+            _logger.LogInformation($"  Image pixel format: {image.PixelFormat}");
+
+            try {
+                // Save image as PNG for input to converter
+                using (var bitmap = new Bitmap(image)) {
+                    bitmap.Save(inputFile, ImageFormat.Png);
+                    _logger.LogInformation($"Saved input image to: {inputFile} (size: {new FileInfo(inputFile).Length} bytes)");
+                }
+
+                // Call the official LVGL image converter (ts-node only, no fallbacks)
+                var success = await CallLvglImageConverterAsync(inputFile, outputFile, format);
+                if (!success) {
+                    _logger.LogError($"LVGL image converter failed to process the image. Input file preserved at: {inputFile}");
+                    throw new InvalidOperationException($"LVGL image converter failed to process the image. Debug files preserved at: {debugDirectory}");
+                }
+
+                // Read the converted binary file
+                if (!File.Exists(outputFile)) {
+                    _logger.LogError($"LVGL converter did not produce output file. Expected: {outputFile}");
+                    _logger.LogError($"Input file preserved for debugging: {inputFile}");
+
+                    // List all files in the debug directory for troubleshooting
+                    var filesInDir = Directory.GetFiles(Path.GetDirectoryName(outputFile)!)
+                        .Select(f => Path.GetFileName(f));
+                    _logger.LogError($"Files in output directory: {string.Join(", ", filesInDir)}");
+
+                    throw new InvalidOperationException($"LVGL converter did not produce output file. Debug files preserved at: {debugDirectory}");
+                }
+
+                var binaryData = await File.ReadAllBytesAsync(outputFile);
+                _logger.LogInformation($"Successfully converted image using LVGL converter:");
+                _logger.LogInformation($"  Output size: {binaryData.Length} bytes");
+                _logger.LogInformation($"  Output file: {outputFile}");
+                _logger.LogInformation($"  Debug files preserved for analysis");
+
+                return binaryData;
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, $"Error during LVGL conversion. Debug files preserved at: {debugDirectory}");
+                throw;
+            }
+            // Note: NOT cleaning up files - preserving for debugging and issue replication
+        }
+
+        private async Task<bool> CallLvglImageConverterAsync(string inputFile, string outputFile, string format) {
+            try {
+                // Determine color format and output type based on format parameter
+                var (colorFormat, outputType, binaryFormat) = GetLvglConverterParameters(format);
+
+                _logger.LogInformation($"Preparing LVGL converter parameters:");
+                _logger.LogInformation($"  Color format: {colorFormat}");
+                _logger.LogInformation($"  Output type: {outputType}");
+                _logger.LogInformation($"  Binary format: {binaryFormat}");
+
+                // Build command arguments for the LVGL converter
+                var arguments = $"\"{inputFile}\" -f -c {colorFormat} -t {outputType}";
+
+                if (outputType == "bin" && !string.IsNullOrEmpty(binaryFormat)) {
+                    arguments += $" --binary-format {binaryFormat}";
+                }
+
+                // Add output file specification - specify the exact output file, not just directory
+                arguments += $" -o \"{outputFile}\"";
+
+                _logger.LogInformation($"LVGL converter command arguments: {arguments}");
+
+                // Execute ts-node only (no fallbacks)
+                var success = await ExecuteTsNodeConverterAsync(arguments);
+
+                if (success) {
+                    _logger.LogInformation($"LVGL converter process completed successfully");
+                    _logger.LogInformation($"Checking for output file: {outputFile}");
+
+                    if (File.Exists(outputFile)) {
+                        _logger.LogInformation($"✓ Output file created successfully: {outputFile}");
+                        return true;
+                    }
+                    else {
+                        _logger.LogError($"✗ Output file was not created: {outputFile}");
+
+                        // List files in the output directory to see what was actually created
+                        var outputDir = Path.GetDirectoryName(outputFile)!;
+                        if (Directory.Exists(outputDir)) {
+                            var filesInDir = Directory.GetFiles(outputDir).Select(f => Path.GetFileName(f));
+                            _logger.LogInformation($"Files in output directory: {string.Join(", ", filesInDir)}");
+                        }
+
+                        return false;
+                    }
+                }
+
+                _logger.LogError("LVGL converter process failed");
+                return false;
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Critical error calling LVGL image converter");
+                return false;
+            }
+        }
+
+        private async Task<bool> ExecuteTsNodeConverterAsync(string arguments) {
+            var converterPath = GetLvglConverterPath();
+
+            _logger.LogInformation($"Executing LVGL image converter:");
+            _logger.LogInformation($"  Working directory: {converterPath}");
+            _logger.LogInformation($"  Command: npx ts-node cli.ts {arguments}");
+
+            try {
+                var processInfo = new ProcessStartInfo {
+                    FileName = "npx.cmd",
+                    Arguments = $"ts-node cli.ts {arguments}",
+                    WorkingDirectory = converterPath,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                _logger.LogInformation($"Starting process: {processInfo.FileName}");
+                _logger.LogInformation($"Process arguments: {processInfo.Arguments}");
+                _logger.LogInformation($"Process working directory: {processInfo.WorkingDirectory}");
+
+                using var process = new Process { StartInfo = processInfo };
+
+                var startTime = DateTime.Now;
+                process.Start();
+                _logger.LogInformation($"Process started at {startTime:HH:mm:ss.fff}");
+
+                var stdout = await process.StandardOutput.ReadToEndAsync();
+                var stderr = await process.StandardError.ReadToEndAsync();
+
+                await process.WaitForExitAsync();
+                var endTime = DateTime.Now;
+                var duration = endTime - startTime;
+
+                _logger.LogInformation($"Process completed at {endTime:HH:mm:ss.fff} (duration: {duration.TotalMilliseconds:F0}ms)");
+                _logger.LogInformation($"Process exit code: {process.ExitCode}");
+
+                if (!string.IsNullOrWhiteSpace(stdout)) {
+                    _logger.LogInformation($"Process stdout:");
+                    foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)) {
+                        _logger.LogInformation($"  STDOUT: {line.Trim()}");
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(stderr)) {
+                    _logger.LogWarning($"Process stderr:");
+                    foreach (var line in stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries)) {
+                        _logger.LogWarning($"  STDERR: {line.Trim()}");
+                    }
+                }
+
+                if (process.ExitCode == 0) {
+                    _logger.LogInformation($"LVGL converter executed successfully (exit code 0)");
+                    return true;
+                }
+                else {
+                    _logger.LogError($"LVGL converter failed with exit code {process.ExitCode}");
+                    _logger.LogError($"This indicates a problem with the lv_img_conv tool or its configuration");
+                    return false;
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Failed to execute npx ts-node LVGL converter");
+                _logger.LogError($"Ensure Node.js and npx are installed and the lv_img_conv tool is properly set up");
+                _logger.LogError($"Working directory was: {converterPath}");
+                return false;
+            }
+        }
+
+
+
+        private (string colorFormat, string outputType, string binaryFormat) GetLvglConverterParameters(string format) {
+            return format.ToLowerInvariant() switch {
+                "lvgl_bin" => ("CF_TRUE_COLOR_ALPHA", "c", "ARGB8565"),
+                "lvgl_indexed" => ("CF_INDEXED_8_BIT", "c", "ARGB8565"),
+                _ => ("CF_TRUE_COLOR_ALPHA", "c", "ARGB8565")
+            };
+        }
+
+        private string GetLvglConverterPath() {
+            _logger.LogInformation("Searching for LVGL converter in standard locations...");
+
+            // Look for the LVGL converter in common locations
+            var possiblePaths = new[] {
+                Path.Combine(Directory.GetCurrentDirectory(), "tools", "lv_img_conv", "lib"),
+                Path.Combine(Directory.GetCurrentDirectory(), "tools", "lv_img_conv\\lib"),
+                Path.Combine(Directory.GetCurrentDirectory(), "lv_img_conv\\lib"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "lv_img_conv\\lib"),
+                "/usr/local/bin/lv_img_conv\\lib",
+                "C:\\tools\\lv_img_conv\\lib"
+            };
+
+            _logger.LogInformation($"Checking {possiblePaths.Length} possible converter locations:");
+
+            foreach (var path in possiblePaths) {
+                _logger.LogInformation($"  Checking: {path}");
+
+                if (Directory.Exists(path)) {
+                    _logger.LogInformation($"    Directory exists: ✓");
+
+                    var converterScript = Path.Combine(path, "cli.ts");
+                    _logger.LogInformation($"    Looking for cli.ts at: {converterScript}");
+
+                    if (File.Exists(converterScript)) {
+                        _logger.LogInformation($"    Found cli.ts: ✓");
+                        _logger.LogInformation($"LVGL converter found at: {path}");
+                        return path;
+                    }
+                    else {
+                        _logger.LogInformation($"    cli.ts not found: ✗");
+
+                        // List what files are actually in the directory
+                        try {
+                            var filesInDir = Directory.GetFiles(path).Select(f => Path.GetFileName(f));
+                            _logger.LogInformation($"    Files in directory: {string.Join(", ", filesInDir)}");
+                        }
+                        catch (Exception ex) {
+                            _logger.LogWarning($"    Could not list files in directory: {ex.Message}");
+                        }
+                    }
+                }
+                else {
+                    _logger.LogInformation($"    Directory does not exist: ✗");
+                }
+            }
+
+            // Default to current directory - user needs to install the converter
+            var currentDir = Directory.GetCurrentDirectory();
+            _logger.LogError("LVGL converter not found in any standard locations!");
+            _logger.LogError($"Please install lv_img_conv from https://github.com/lvgl/lv_img_conv");
+            _logger.LogError($"Expected to find cli.ts in one of the checked locations");
+            _logger.LogError($"Falling back to current directory: {currentDir}");
+
+            return currentDir;
+        }
+
+        private byte[] ConvertToPng(Image image) {
+            using (var memoryStream = new MemoryStream()) {
+                image.Save(memoryStream, ImageFormat.Png);
+                return memoryStream.ToArray();
             }
         }
 

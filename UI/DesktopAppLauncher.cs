@@ -13,23 +13,18 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using UniMixerServer.Services;
 
-namespace UniMixerServer.UI
-{
-    public static class DesktopAppLauncher
-    {
-        public static void Launch()
-        {
+namespace UniMixerServer.UI {
+    public static class DesktopAppLauncher {
+        public static void Launch() {
             var launchLogger = new DesktopLogger("DesktopAppLauncher");
             launchLogger.LogInformation("Entering Launch - creating dedicated UI thread");
 
             // Create a dedicated thread for the WinForms application
-            var uiThread = new Thread(() =>
-            {
+            var uiThread = new Thread(() => {
                 var uiThreadLogger = new DesktopLogger("UIThread");
                 uiThreadLogger.LogInformation("UI thread started - initializing WinForms application");
 
-                try
-                {
+                try {
                     // Initialize WinForms on the dedicated thread
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
@@ -43,25 +38,21 @@ namespace UniMixerServer.UI
 
                     uiThreadLogger.LogInformation("Application message loop ended");
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     uiThreadLogger.LogError(ex, "Failed to start desktop application");
 
                     // Show error on UI thread
-                    try
-                    {
+                    try {
                         MessageBox.Show($"Failed to start desktop application: {ex.Message}",
                             "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
-                    catch (Exception msgEx)
-                    {
+                    catch (Exception msgEx) {
                         uiThreadLogger.LogError(msgEx, "Failed to show error message");
                         Console.WriteLine($"Critical error: {ex.Message}");
                         Console.WriteLine($"Message box error: {msgEx.Message}");
                     }
                 }
-            })
-            {
+            }) {
                 Name = "UniMixer-UI-Thread",
                 IsBackground = false, // Keep application alive
                 ApartmentState = ApartmentState.STA // Required for WinForms
@@ -78,20 +69,17 @@ namespace UniMixerServer.UI
     }
 
     // Lightweight logger for desktop application
-    public class DesktopLogger<T> : ILogger<T>
-    {
+    public class DesktopLogger<T> : ILogger<T> {
         private readonly string _categoryName;
 
-        public DesktopLogger(string categoryName)
-        {
+        public DesktopLogger(string categoryName) {
             _categoryName = categoryName;
         }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        {
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
             var message = formatter(state, exception);
             var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
             var level = logLevel.ToString().ToUpperInvariant();
@@ -106,16 +94,15 @@ namespace UniMixerServer.UI
     }
 
     // Non-generic version for backward compatibility
-    public class DesktopLogger : DesktopLogger<object>
-    {
+    public class DesktopLogger : DesktopLogger<object> {
         public DesktopLogger(string categoryName) : base(categoryName) { }
     }
 
-    public class ModernAudioMixerForm : Form
-    {
+    public class ModernAudioMixerForm : Form {
         // Core components
         private IAudioManager? _audioManager;
         private IProcessIconExtractor? _iconExtractor;
+        private IAssetService? _assetService;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
         private readonly System.Windows.Forms.Timer _uiUpdateTimer;
 
@@ -141,6 +128,13 @@ namespace UniMixerServer.UI
         private CheckBox _autoRefreshToggle;
         private ComboBox _deviceFilter;
 
+        // LVGL Conversion UI Components
+        private Panel _conversionPanel;
+        private Button _convertAllIconsButton;
+        private Label _conversionStatusLabel;
+        private ProgressBar _conversionProgress;
+        private ComboBox _conversionFormatCombo;
+
         // Modern Color Scheme
         private static readonly Color PrimaryBg = Color.FromArgb(13, 17, 23);
         private static readonly Color SecondaryBg = Color.FromArgb(22, 27, 34);
@@ -153,13 +147,11 @@ namespace UniMixerServer.UI
         private static readonly Color AccentOrange = Color.FromArgb(255, 130, 67);
         private static readonly Color AccentRed = Color.FromArgb(248, 81, 73);
 
-        public ModernAudioMixerForm()
-        {
+        public ModernAudioMixerForm() {
             var constructorLogger = new DesktopLogger("ModernAudioMixerForm");
             constructorLogger.LogInformation("Entering ModernAudioMixerForm constructor");
 
-            try
-            {
+            try {
                 constructorLogger.LogInformation("Initializing modern UI");
                 // CRITICAL FIX: Initialize UI first, THEN start background tasks
                 InitializeModernUI();
@@ -179,20 +171,17 @@ namespace UniMixerServer.UI
 
                 constructorLogger.LogInformation("ModernAudioMixerForm constructor completed successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 constructorLogger.LogError(ex, "Critical error in ModernAudioMixerForm constructor");
 
                 // Try to show a basic error state
-                try
-                {
+                try {
                     this.Text = "UniMixer Pro - Error";
                     this.WindowState = FormWindowState.Normal;
                     this.Size = new Size(800, 600);
                     this.BackColor = Color.DarkRed;
 
-                    var errorLabel = new Label
-                    {
+                    var errorLabel = new Label {
                         Text = $"Initialization Error: {ex.Message}",
                         ForeColor = Color.White,
                         Font = new Font("Segoe UI", 12F),
@@ -201,8 +190,7 @@ namespace UniMixerServer.UI
                     };
                     this.Controls.Add(errorLabel);
                 }
-                catch (Exception innerEx)
-                {
+                catch (Exception innerEx) {
                     constructorLogger.LogError(innerEx, "Failed to create error UI");
                 }
 
@@ -210,13 +198,11 @@ namespace UniMixerServer.UI
             }
         }
 
-        private void OnFormLoad(object sender, EventArgs e)
-        {
+        private void OnFormLoad(object sender, EventArgs e) {
             var formLoadLogger = new DesktopLogger("OnFormLoad");
             formLoadLogger.LogInformation("Entering OnFormLoad - form has been loaded and is visible");
 
-            try
-            {
+            try {
                 formLoadLogger.LogInformation("Starting UI update timer");
                 _uiUpdateTimer.Start();
                 formLoadLogger.LogInformation("UI update timer started successfully");
@@ -225,21 +211,18 @@ namespace UniMixerServer.UI
                 StartBackgroundInitializationSafe();
                 formLoadLogger.LogInformation("Background initialization started successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 formLoadLogger.LogError(ex, "Error in OnFormLoad");
                 _statusLabel.Text = "❌ Form Load Error";
                 _statusLabel.ForeColor = AccentRed;
             }
         }
 
-        private void InitializeModernUI()
-        {
+        private void InitializeModernUI() {
             var uiLogger = new DesktopLogger("InitializeModernUI");
             uiLogger.LogInformation("Entering InitializeModernUI");
 
-            try
-            {
+            try {
                 uiLogger.LogInformation("Setting up form properties");
                 // Form setup
                 Text = "UniMixer Pro";
@@ -262,27 +245,23 @@ namespace UniMixerServer.UI
 
                 uiLogger.LogInformation("InitializeModernUI completed successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 uiLogger.LogError(ex, "Error initializing UI");
                 Console.WriteLine($"Error initializing UI: {ex.Message}");
                 // Don't throw - allow form to continue with basic setup
             }
         }
 
-        private void CreateModernLayout()
-        {
+        private void CreateModernLayout() {
             // Main container with proper spacing
-            _mainPanel = new Panel
-            {
+            _mainPanel = new Panel {
                 Dock = DockStyle.Fill,
                 BackColor = PrimaryBg,
                 Padding = new Padding(0)
             };
 
             // Header section - fixed height with proper content
-            _headerPanel = new Panel
-            {
+            _headerPanel = new Panel {
                 Height = 120, // Increased for better spacing
                 Dock = DockStyle.Top,
                 BackColor = SecondaryBg,
@@ -290,15 +269,13 @@ namespace UniMixerServer.UI
             };
 
             // Title and main controls row
-            var titleRow = new Panel
-            {
+            var titleRow = new Panel {
                 Height = 40,
                 Dock = DockStyle.Top,
                 BackColor = Color.Transparent
             };
 
-            _titleLabel = new Label
-            {
+            _titleLabel = new Label {
                 Text = "🎵 UniMixer Pro",
                 Font = new Font("Segoe UI", 18F, FontStyle.Bold),
                 ForeColor = TextPrimary,
@@ -307,8 +284,7 @@ namespace UniMixerServer.UI
             };
 
             // Real-time search box
-            var searchBox = new TextBox
-            {
+            var searchBox = new TextBox {
                 PlaceholderText = "🔍 Search processes...",
                 Font = new Font("Segoe UI", 10F),
                 BackColor = AccentBg,
@@ -321,8 +297,7 @@ namespace UniMixerServer.UI
             searchBox.TextChanged += (s, e) => FilterSessionsRealTime(searchBox.Text);
 
             // Quick action buttons
-            var quickActionsPanel = new FlowLayoutPanel
-            {
+            var quickActionsPanel = new FlowLayoutPanel {
                 FlowDirection = FlowDirection.LeftToRight,
                 AutoSize = true,
                 Location = new Point(600, 4),
@@ -343,8 +318,7 @@ namespace UniMixerServer.UI
             titleRow.Controls.AddRange(new Control[] { _titleLabel, searchBox, quickActionsPanel });
 
             // Status and legend row
-            var statusRow = new Panel
-            {
+            var statusRow = new Panel {
                 Height = 60,
                 Dock = DockStyle.Fill,
                 BackColor = Color.Transparent,
@@ -352,8 +326,7 @@ namespace UniMixerServer.UI
             };
 
             // Status indicators
-            _statusLabel = new Label
-            {
+            _statusLabel = new Label {
                 Text = "⚡ Starting...",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = AccentOrange,
@@ -361,8 +334,7 @@ namespace UniMixerServer.UI
                 Location = new Point(0, 0)
             };
 
-            _sessionCountLabel = new Label
-            {
+            _sessionCountLabel = new Label {
                 Text = "Initializing...",
                 Font = new Font("Segoe UI", 10F),
                 ForeColor = TextSecondary,
@@ -383,8 +355,7 @@ namespace UniMixerServer.UI
             _headerPanel.Controls.AddRange(new Control[] { titleRow, statusRow });
 
             // Right sidebar for advanced controls and details
-            _controlPanel = new Panel
-            {
+            _controlPanel = new Panel {
                 Width = 320,
                 Dock = DockStyle.Right,
                 BackColor = SecondaryBg,
@@ -394,8 +365,7 @@ namespace UniMixerServer.UI
             CreateAdvancedSidebar();
 
             // Main content area - properly positioned to avoid header overlap
-            _bodyPanel = new Panel
-            {
+            _bodyPanel = new Panel {
                 Dock = DockStyle.Fill,
                 BackColor = PrimaryBg,
                 Padding = new Padding(24, 12, 24, 12), // Reduced top padding since header is properly sized
@@ -403,8 +373,7 @@ namespace UniMixerServer.UI
             };
 
             // Session container with professional styling
-            _sessionContainer = new FlowLayoutPanel
-            {
+            _sessionContainer = new FlowLayoutPanel {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
@@ -416,16 +385,14 @@ namespace UniMixerServer.UI
             _bodyPanel.Controls.Add(_sessionContainer);
 
             // Status bar at bottom
-            _statusPanel = new Panel
-            {
+            _statusPanel = new Panel {
                 Height = 32,
                 Dock = DockStyle.Bottom,
                 BackColor = SecondaryBg,
                 Padding = new Padding(24, 6, 24, 6)
             };
 
-            var statusInfo = new Label
-            {
+            var statusInfo = new Label {
                 Text = "Ready • Press F5 to refresh • Ctrl+F to search • Right-click for options",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextSecondary,
@@ -446,57 +413,44 @@ namespace UniMixerServer.UI
         }
 
         // CRITICAL FIX: Wrapper for async operations with proper error handling
-        private async Task SafeExecuteAsync(Func<Task> operation)
-        {
+        private async Task SafeExecuteAsync(Func<Task> operation) {
             if (_isDisposing) return;
 
-            try
-            {
+            try {
                 await operation();
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 // Form is disposing, ignore
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Error in async operation: {ex.Message}");
 
                 // Update UI safely
-                if (!_isDisposing && !IsDisposed)
-                {
-                    try
-                    {
-                        if (InvokeRequired)
-                        {
+                if (!_isDisposing && !IsDisposed) {
+                    try {
+                        if (InvokeRequired) {
                             BeginInvoke(new Action(() => UpdateErrorStatus($"Error: {ex.Message}")));
                         }
-                        else
-                        {
+                        else {
                             UpdateErrorStatus($"Error: {ex.Message}");
                         }
                     }
-                    catch
-                    {
+                    catch {
                         // Ignore invoke errors during shutdown
                     }
                 }
             }
         }
 
-        private void UpdateErrorStatus(string message)
-        {
-            if (!_isDisposing && !IsDisposed && _statusLabel != null)
-            {
+        private void UpdateErrorStatus(string message) {
+            if (!_isDisposing && !IsDisposed && _statusLabel != null) {
                 _statusLabel.Text = message;
                 _statusLabel.ForeColor = AccentRed;
             }
         }
 
-        private Button CreateQuickButton(string text, Color color, int width)
-        {
-            var btn = new Button
-            {
+        private Button CreateQuickButton(string text, Color color, int width) {
+            var btn = new Button {
                 Text = text,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Size = new Size(width, 28),
@@ -512,16 +466,13 @@ namespace UniMixerServer.UI
             return btn;
         }
 
-        private Panel CreateInteractiveLegend()
-        {
-            var legendPanel = new Panel
-            {
+        private Panel CreateInteractiveLegend() {
+            var legendPanel = new Panel {
                 Size = new Size(280, 48),
                 BackColor = Color.Transparent
             };
 
-            var legendTitle = new Label
-            {
+            var legendTitle = new Label {
                 Text = "Status Legend:",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 ForeColor = TextSecondary,
@@ -529,8 +480,7 @@ namespace UniMixerServer.UI
                 AutoSize = true
             };
 
-            var legendItems = new FlowLayoutPanel
-            {
+            var legendItems = new FlowLayoutPanel {
                 FlowDirection = FlowDirection.LeftToRight,
                 AutoSize = true,
                 Location = new Point(0, 20),
@@ -549,17 +499,14 @@ namespace UniMixerServer.UI
             return legendPanel;
         }
 
-        private Panel CreateLegendItem(string symbol, Color color, string meaning)
-        {
-            var item = new Panel
-            {
+        private Panel CreateLegendItem(string symbol, Color color, string meaning) {
+            var item = new Panel {
                 Size = new Size(60, 20),
                 BackColor = Color.Transparent,
                 Margin = new Padding(0, 0, 12, 0)
             };
 
-            var symbolLabel = new Label
-            {
+            var symbolLabel = new Label {
                 Text = symbol,
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                 ForeColor = color,
@@ -567,8 +514,7 @@ namespace UniMixerServer.UI
                 Size = new Size(16, 16)
             };
 
-            var textLabel = new Label
-            {
+            var textLabel = new Label {
                 Text = meaning,
                 Font = new Font("Segoe UI", 8F),
                 ForeColor = TextSecondary,
@@ -585,17 +531,14 @@ namespace UniMixerServer.UI
             return item;
         }
 
-        private Panel CreateAdvancedControlsPanel()
-        {
-            var panel = new Panel
-            {
+        private Panel CreateAdvancedControlsPanel() {
+            var panel = new Panel {
                 Size = new Size(200, 48),
                 BackColor = Color.Transparent
             };
 
             // View mode selector
-            var viewModeLabel = new Label
-            {
+            var viewModeLabel = new Label {
                 Text = "View:",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextSecondary,
@@ -603,8 +546,7 @@ namespace UniMixerServer.UI
                 AutoSize = true
             };
 
-            _deviceFilter = new ComboBox
-            {
+            _deviceFilter = new ComboBox {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("Segoe UI", 9F),
                 Location = new Point(40, 0),
@@ -623,8 +565,7 @@ namespace UniMixerServer.UI
             _deviceFilter.SelectedIndexChanged += (s, e) => FilterSessionsRealTime("");
 
             // Auto-refresh toggle
-            _autoRefreshToggle = new CheckBox
-            {
+            _autoRefreshToggle = new CheckBox {
                 Text = "Auto-refresh",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextPrimary,
@@ -637,8 +578,7 @@ namespace UniMixerServer.UI
             return panel;
         }
 
-        private void CreateAdvancedSidebar()
-        {
+        private void CreateAdvancedSidebar() {
             // Session details panel
             var detailsPanel = CreateCard("📊 Session Details", 200);
             detailsPanel.Location = new Point(0, 0);
@@ -649,31 +589,33 @@ namespace UniMixerServer.UI
             volumePanel.Location = new Point(0, 220);
             CreateMasterVolumePanel(volumePanel);
 
+            // LVGL Icon Conversion panel
+            _conversionPanel = CreateCard("🎨 LVGL Conversion", 160);
+            _conversionPanel.Location = new Point(0, 420);
+            CreateConversionPanel(_conversionPanel);
+
             // System info panel
             var systemPanel = CreateCard("💻 System Info", 120);
-            systemPanel.Location = new Point(0, 420);
+            systemPanel.Location = new Point(0, 600);
             CreateSystemInfoPanel(systemPanel);
 
             // Settings panel
             var settingsPanel = CreateCard("⚙️ Settings", 100);
-            settingsPanel.Location = new Point(0, 560);
+            settingsPanel.Location = new Point(0, 740);
             CreateSettingsPanel(settingsPanel);
 
-            _controlPanel.Controls.AddRange(new Control[] { detailsPanel, volumePanel, systemPanel, settingsPanel });
+            _controlPanel.Controls.AddRange(new Control[] { detailsPanel, volumePanel, _conversionPanel, systemPanel, settingsPanel });
         }
 
-        private Panel CreateCard(string title, int height)
-        {
-            var card = new Panel
-            {
+        private Panel CreateCard(string title, int height) {
+            var card = new Panel {
                 Size = new Size(280, height),
                 BackColor = AccentBg,
                 Padding = new Padding(16),
                 Margin = new Padding(0, 0, 0, 20)
             };
 
-            var titleLabel = new Label
-            {
+            var titleLabel = new Label {
                 Text = title,
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = TextPrimary,
@@ -684,8 +626,7 @@ namespace UniMixerServer.UI
             card.Controls.Add(titleLabel);
 
             // Add subtle border
-            card.Paint += (s, e) =>
-            {
+            card.Paint += (s, e) => {
                 using var pen = new Pen(BorderColor, 1);
                 e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
             };
@@ -693,10 +634,8 @@ namespace UniMixerServer.UI
             return card;
         }
 
-        private void CreateSessionDetailsPanel(Panel parent)
-        {
-            var selectedLabel = new Label
-            {
+        private void CreateSessionDetailsPanel(Panel parent) {
+            var selectedLabel = new Label {
                 Text = "Select a session to view details",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextSecondary,
@@ -708,11 +647,9 @@ namespace UniMixerServer.UI
             parent.Controls.Add(selectedLabel);
         }
 
-        private void CreateMasterVolumePanel(Panel parent)
-        {
+        private void CreateMasterVolumePanel(Panel parent) {
             // Master volume slider
-            var masterVolumeTrack = new TrackBar
-            {
+            var masterVolumeTrack = new TrackBar {
                 Minimum = 0,
                 Maximum = 100,
                 Value = 50,
@@ -722,8 +659,7 @@ namespace UniMixerServer.UI
                 BackColor = AccentBg
             };
 
-            var volumeLabel = new Label
-            {
+            var volumeLabel = new Label {
                 Text = "Master Volume: 50%",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextPrimary,
@@ -731,14 +667,12 @@ namespace UniMixerServer.UI
                 AutoSize = true
             };
 
-            masterVolumeTrack.ValueChanged += (s, e) =>
-            {
+            masterVolumeTrack.ValueChanged += (s, e) => {
                 volumeLabel.Text = $"Master Volume: {masterVolumeTrack.Value}%";
             };
 
             // Quick volume buttons
-            var volumeButtonsPanel = new FlowLayoutPanel
-            {
+            var volumeButtonsPanel = new FlowLayoutPanel {
                 FlowDirection = FlowDirection.LeftToRight,
                 AutoSize = true,
                 Location = new Point(0, 100),
@@ -760,10 +694,8 @@ namespace UniMixerServer.UI
             parent.Controls.AddRange(new Control[] { masterVolumeTrack, volumeLabel, volumeButtonsPanel });
         }
 
-        private Button CreateVolumeButton(string text, int value)
-        {
-            return new Button
-            {
+        private Button CreateVolumeButton(string text, int value) {
+            return new Button {
                 Text = text,
                 Size = new Size(50, 24),
                 FlatStyle = FlatStyle.Flat,
@@ -775,10 +707,8 @@ namespace UniMixerServer.UI
             };
         }
 
-        private void CreateSystemInfoPanel(Panel parent)
-        {
-            var infoText = new Label
-            {
+        private void CreateSystemInfoPanel(Panel parent) {
+            var infoText = new Label {
                 Text = "🎧 Audio Sessions: Loading...\n💻 CPU Usage: 0%\n🔊 Audio Devices: 0",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextSecondary,
@@ -791,10 +721,8 @@ namespace UniMixerServer.UI
 
             // Update system info periodically
             var systemTimer = new System.Windows.Forms.Timer { Interval = 2000 };
-            systemTimer.Tick += (s, e) =>
-            {
-                try
-                {
+            systemTimer.Tick += (s, e) => {
+                try {
                     var sessionCount = _currentSessions.Count;
                     var activeCount = _currentSessions.Count(s => s.SessionState == 1);
                     infoText.Text = $"🎧 Audio Sessions: {sessionCount} ({activeCount} active)\n💻 System: Windows Audio API\n🔊 Update Rate: 1s";
@@ -804,8 +732,7 @@ namespace UniMixerServer.UI
             systemTimer.Start();
         }
 
-        private void CreateSettingsPanel(Panel parent)
-        {
+        private void CreateSettingsPanel(Panel parent) {
             var exportBtn = CreateQuickButton("📤 Export", AccentBlue, 120);
             exportBtn.Location = new Point(0, 40);
             exportBtn.Click += async (s, e) => await SafeExecuteAsync(() => ExportSessionData());
@@ -816,57 +743,248 @@ namespace UniMixerServer.UI
             parent.Controls.AddRange(new Control[] { exportBtn, themeBtn });
         }
 
+        private void CreateConversionPanel(Panel parent) {
+            // Format selection combo box
+            _conversionFormatCombo = new ComboBox {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(0, 40),
+                Size = new Size(200, 24),
+                BackColor = AccentBg,
+                ForeColor = TextPrimary,
+                Font = new Font("Segoe UI", 9F)
+            };
+            _conversionFormatCombo.Items.AddRange(new[] { "LVGL Binary (565)", "LVGL Indexed" });
+            _conversionFormatCombo.SelectedIndex = 0;
+
+            // Convert all icons button
+            _convertAllIconsButton = CreateQuickButton("🔄 Convert All Icons", AccentOrange, 200);
+            _convertAllIconsButton.Location = new Point(0, 75);
+            _convertAllIconsButton.Enabled = false;
+            _convertAllIconsButton.Click += async (s, e) => await SafeExecuteAsync(() => ConvertAllProcessIcons());
+
+            // Progress bar
+            _conversionProgress = new ProgressBar {
+                Location = new Point(0, 110),
+                Size = new Size(200, 20),
+                Style = ProgressBarStyle.Continuous,
+                Visible = false
+            };
+
+            // Status label
+            _conversionStatusLabel = new Label {
+                Text = "LVGL converter not ready",
+                Font = new Font("Segoe UI", 8F),
+                ForeColor = TextSecondary,
+                Location = new Point(0, 135),
+                Size = new Size(248, 20),
+                TextAlign = ContentAlignment.TopLeft
+            };
+
+            parent.Controls.AddRange(new Control[] {
+                _conversionFormatCombo, _convertAllIconsButton, _conversionProgress, _conversionStatusLabel
+            });
+        }
+
+        private void EnableConversionControls() {
+            if (_assetService != null && _convertAllIconsButton != null) {
+                _convertAllIconsButton.Enabled = true;
+                if (_conversionStatusLabel != null) {
+                    _conversionStatusLabel.Text = "Ready to convert icons";
+                    _conversionStatusLabel.ForeColor = AccentGreen;
+                }
+            }
+        }
+
+        private async Task ConvertAllProcessIcons() {
+            if (_assetService == null || _currentSessions.Count == 0) {
+                MessageBox.Show("No sessions available or AssetService not initialized.", "Conversion Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var conversionLogger = new DesktopLogger("ConvertAllProcessIcons");
+            conversionLogger.LogInformation($"Starting conversion of {_currentSessions.Count} process icons");
+
+            var selectedFormat = _conversionFormatCombo?.SelectedIndex == 1 ? "lvgl_indexed" : "lvgl_bin";
+            var uniqueProcesses = _currentSessions
+                .GroupBy(s => s.ProcessName)
+                .Select(g => g.First())
+                .ToList();
+
+            SafeUpdateUI(() => {
+                _conversionProgress.Maximum = uniqueProcesses.Count;
+                _conversionProgress.Value = 0;
+                _conversionProgress.Visible = true;
+                _convertAllIconsButton.Enabled = false;
+                _conversionStatusLabel.Text = "Converting icons...";
+                _conversionStatusLabel.ForeColor = AccentOrange;
+            });
+
+            int successful = 0;
+            int failed = 0;
+
+            try {
+                for (int i = 0; i < uniqueProcesses.Count; i++) {
+                    var session = uniqueProcesses[i];
+
+                    try {
+                        conversionLogger.LogInformation($"Converting icon for process: {session.ProcessName}");
+
+                        var result = await _assetService.GetAssetAsync(session.ProcessName);
+
+                        if (result.Success && result.AssetData != null && result.AssetData.Length > 0) {
+                            successful++;
+                            conversionLogger.LogInformation($"Successfully converted icon for {session.ProcessName} ({result.AssetData.Length} bytes)");
+                        }
+                        else {
+                            failed++;
+                            conversionLogger.LogWarning($"Failed to convert icon for {session.ProcessName}: {result.ErrorMessage ?? "Unknown error"}");
+                        }
+                    }
+                    catch (Exception ex) {
+                        failed++;
+                        conversionLogger.LogError(ex, $"Error converting icon for {session.ProcessName}");
+                    }
+
+                    SafeUpdateUI(() => {
+                        _conversionProgress.Value = i + 1;
+                        _conversionStatusLabel.Text = $"Converting... {i + 1}/{uniqueProcesses.Count}";
+                    });
+
+                    // Small delay to prevent overwhelming the system
+                    await Task.Delay(100);
+                }
+
+                conversionLogger.LogInformation($"Conversion completed: {successful} successful, {failed} failed");
+
+                SafeUpdateUI(() => {
+                    _conversionProgress.Visible = false;
+                    _convertAllIconsButton.Enabled = true;
+                    _conversionStatusLabel.Text = $"✅ Complete: {successful} OK, {failed} failed";
+                    _conversionStatusLabel.ForeColor = successful > 0 ? AccentGreen : AccentRed;
+                });
+
+                MessageBox.Show($"Icon conversion completed!\n\nSuccessful: {successful}\nFailed: {failed}\n\nCheck logs for details.",
+                    "Conversion Complete", MessageBoxButtons.OK,
+                    successful > 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }
+            catch (Exception ex) {
+                conversionLogger.LogError(ex, "Critical error during icon conversion");
+
+                SafeUpdateUI(() => {
+                    _conversionProgress.Visible = false;
+                    _convertAllIconsButton.Enabled = true;
+                    _conversionStatusLabel.Text = "❌ Conversion failed";
+                    _conversionStatusLabel.ForeColor = AccentRed;
+                });
+
+                MessageBox.Show($"Icon conversion failed: {ex.Message}", "Conversion Error",
+    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ConvertSingleProcessIcon(string processName) {
+            if (_assetService == null) {
+                MessageBox.Show("AssetService not initialized.", "Conversion Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var conversionLogger = new DesktopLogger("ConvertSingleProcessIcon");
+            conversionLogger.LogInformation($"Starting conversion of icon for process: {processName}");
+
+            var selectedFormat = _conversionFormatCombo?.SelectedIndex == 1 ? "lvgl_indexed" : "lvgl_bin";
+
+            try {
+                SafeUpdateUI(() => {
+                    if (_conversionStatusLabel != null) {
+                        _conversionStatusLabel.Text = $"Converting {processName}...";
+                        _conversionStatusLabel.ForeColor = AccentOrange;
+                    }
+                });
+
+                var result = await _assetService.GetAssetAsync(processName);
+
+                if (result.Success && result.AssetData != null && result.AssetData.Length > 0) {
+                    conversionLogger.LogInformation($"Successfully converted icon for {processName} ({result.AssetData.Length} bytes)");
+
+                    SafeUpdateUI(() => {
+                        if (_conversionStatusLabel != null) {
+                            _conversionStatusLabel.Text = $"✅ {processName} converted";
+                            _conversionStatusLabel.ForeColor = AccentGreen;
+                        }
+                    });
+
+                    MessageBox.Show($"Icon for '{processName}' converted successfully!\n\nFormat: {selectedFormat}\nSize: {result.AssetData.Length} bytes",
+                        "Conversion Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else {
+                    conversionLogger.LogWarning($"Failed to convert icon for {processName}: {result.ErrorMessage ?? "Unknown error"}");
+
+                    SafeUpdateUI(() => {
+                        if (_conversionStatusLabel != null) {
+                            _conversionStatusLabel.Text = $"❌ {processName} failed";
+                            _conversionStatusLabel.ForeColor = AccentRed;
+                        }
+                    });
+
+                    MessageBox.Show($"Failed to convert icon for '{processName}':\n\n{result.ErrorMessage ?? "Unknown error"}\n\nCheck logs for details.",
+                        "Conversion Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex) {
+                conversionLogger.LogError(ex, $"Error converting icon for {processName}");
+
+                SafeUpdateUI(() => {
+                    if (_conversionStatusLabel != null) {
+                        _conversionStatusLabel.Text = $"❌ Error converting {processName}";
+                        _conversionStatusLabel.ForeColor = AccentRed;
+                    }
+                });
+
+                MessageBox.Show($"Error converting icon for '{processName}': {ex.Message}", "Conversion Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         // Add the missing methods that are referenced but not implemented
-        private void FilterSessionsRealTime(string searchText)
-        {
+        private void FilterSessionsRealTime(string searchText) {
             var filterLogger = new DesktopLogger("FilterSessionsRealTime");
             filterLogger.LogDebug($"Entering FilterSessionsRealTime - filtering with search text: '{searchText}'");
 
             if (_isDisposing) return;
 
-            try
-            {
-                if (string.IsNullOrEmpty(searchText))
-                {
-                    foreach (var card in _sessionCards.Values)
-                    {
+            try {
+                if (string.IsNullOrEmpty(searchText)) {
+                    foreach (var card in _sessionCards.Values) {
                         card.Visible = true;
                     }
                     return;
                 }
 
-                foreach (var kvp in _sessionCards)
-                {
+                foreach (var kvp in _sessionCards) {
                     var session = _currentSessions.FirstOrDefault(s => GetSessionKey(s) == kvp.Key);
-                    if (session != null)
-                    {
+                    if (session != null) {
                         bool matches = session.ProcessName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                                      session.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase);
                         kvp.Value.Visible = matches;
                     }
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Error filtering sessions: {ex.Message}");
             }
         }
 
-        private async Task BulkMuteOperation(bool mute)
-        {
-            try
-            {
-                var tasks = _currentSessions.Select(async session =>
-                {
-                    try
-                    {
-                        if (_audioManager != null)
-                        {
+        private async Task BulkMuteOperation(bool mute) {
+            try {
+                var tasks = _currentSessions.Select(async session => {
+                    try {
+                        if (_audioManager != null) {
                             await _audioManager.MuteProcessAsync(session.ProcessId, mute);
                         }
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         Console.WriteLine($"Failed to {(mute ? "mute" : "unmute")} {session.ProcessName}: {ex.Message}");
                     }
                 });
@@ -874,24 +992,19 @@ namespace UniMixerServer.UI
                 await Task.WhenAll(tasks);
                 await RefreshSessionsAsync(); // Refresh to show changes
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Bulk {(mute ? "mute" : "unmute")} operation failed: {ex.Message}");
             }
         }
 
-        private async Task ExportSessionData()
-        {
-            try
-            {
-                var data = _currentSessions.Select(s => new
-                {
+        private async Task ExportSessionData() {
+            try {
+                var data = _currentSessions.Select(s => new {
                     ProcessName = s.ProcessName,
                     DisplayName = s.DisplayName,
                     Volume = Math.Round(s.Volume * 100, 1),
                     IsMuted = s.IsMuted,
-                    State = s.SessionState switch
-                    {
+                    State = s.SessionState switch {
                         0 => "Inactive",
                         1 => "Active",
                         2 => "Expired",
@@ -900,8 +1013,7 @@ namespace UniMixerServer.UI
                     LastUpdated = s.LastUpdated.ToString("yyyy-MM-dd HH:mm:ss")
                 });
 
-                var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions
-                {
+                var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions {
                     WriteIndented = true
                 });
 
@@ -911,30 +1023,23 @@ namespace UniMixerServer.UI
                 MessageBox.Show($"Session data exported to {fileName}", "Export Complete",
                               MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
                               MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void ApplyModernStyling()
-        {
+        private void ApplyModernStyling() {
             // Apply modern styling to controls
-            foreach (Control control in Controls)
-            {
+            foreach (Control control in Controls) {
                 ApplyModernStylingRecursive(control);
             }
         }
 
-        private void ApplyModernStylingRecursive(Control control)
-        {
-            if (control is Panel panel)
-            {
-                panel.Paint += (s, e) =>
-                {
-                    if (panel == _headerPanel || panel == _controlPanel || panel == _statusPanel)
-                    {
+        private void ApplyModernStylingRecursive(Control control) {
+            if (control is Panel panel) {
+                panel.Paint += (s, e) => {
+                    if (panel == _headerPanel || panel == _controlPanel || panel == _statusPanel) {
                         // Draw subtle border
                         using var pen = new Pen(BorderColor, 1);
                         e.Graphics.DrawLine(pen, 0, panel.Height - 1, panel.Width, panel.Height - 1);
@@ -943,65 +1048,51 @@ namespace UniMixerServer.UI
                 };
             }
 
-            foreach (Control child in control.Controls)
-            {
+            foreach (Control child in control.Controls) {
                 ApplyModernStylingRecursive(child);
             }
         }
 
         // CRITICAL FIX: Safe UI update method
-        private void SafeUpdateUI(Action updateAction)
-        {
+        private void SafeUpdateUI(Action updateAction) {
             if (_isDisposing || IsDisposed) return;
 
-            try
-            {
-                if (InvokeRequired)
-                {
-                    BeginInvoke(new Action(() =>
-                    {
-                        if (!_isDisposing && !IsDisposed)
-                        {
+            try {
+                if (InvokeRequired) {
+                    BeginInvoke(new Action(() => {
+                        if (!_isDisposing && !IsDisposed) {
                             updateAction();
                         }
                     }));
                 }
-                else
-                {
-                    if (!_isDisposing && !IsDisposed)
-                    {
+                else {
+                    if (!_isDisposing && !IsDisposed) {
                         updateAction();
                     }
                 }
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 // Form is disposing, ignore
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Error updating UI: {ex.Message}");
             }
         }
 
         // CRITICAL FIX: Safe background initialization with proper error handling
-        private void StartBackgroundInitializationSafe()
-        {
+        private void StartBackgroundInitializationSafe() {
             var startupLogger = new DesktopLogger("StartBackgroundInitializationSafe");
             startupLogger.LogInformation("Entering StartBackgroundInitializationSafe - starting background initialization");
 
             // CRITICAL FIX: Don't block the UI thread - use Task.Run with immediate return
-            Task.Run(async () =>
-            {
+            Task.Run(async () => {
                 var taskLogger = new DesktopLogger("BackgroundTask");
 
-                try
-                {
+                try {
                     taskLogger.LogInformation("Background task started");
 
                     // CRITICAL FIX: Show loading state immediately
-                    SafeUpdateUI(() =>
-                    {
+                    SafeUpdateUI(() => {
                         _statusLabel.Text = "⚡ Initializing...";
                         _statusLabel.ForeColor = AccentOrange;
                         _sessionCountLabel.Text = "Loading...";
@@ -1012,8 +1103,7 @@ namespace UniMixerServer.UI
                     await Task.Delay(500, _cancellationTokenSource.Token); // Reduced delay
                     taskLogger.LogInformation("Form stabilization delay completed");
 
-                    if (_isDisposing || _cancellationTokenSource.Token.IsCancellationRequested)
-                    {
+                    if (_isDisposing || _cancellationTokenSource.Token.IsCancellationRequested) {
                         taskLogger.LogInformation("Cancellation requested, exiting initialization");
                         return;
                     }
@@ -1025,17 +1115,22 @@ namespace UniMixerServer.UI
                     _iconExtractor = new ProcessIconExtractor(new DesktopLogger<ProcessIconExtractor>("ProcessIconExtractor"));
                     taskLogger.LogInformation("ProcessIconExtractor initialized successfully");
 
+                    taskLogger.LogInformation("Starting AssetService initialization");
+                    SafeUpdateUI(() => _statusLabel.Text = "🎨 Creating AssetService...");
+
+                    // Initialize AssetService with icon extractor for LVGL conversion
+                    _assetService = new AssetService(new DesktopLogger<AssetService>("AssetService"), _iconExtractor);
+                    taskLogger.LogInformation("AssetService initialized successfully");
+
                     taskLogger.LogInformation("Starting AudioManager initialization");
                     SafeUpdateUI(() => _statusLabel.Text = "🔧 Creating AudioManager...");
 
-                    try
-                    {
+                    try {
                         var audioManagerLogger = new DesktopLogger<AudioManager>("AudioManager");
                         audioManagerLogger.LogInformation("Creating AudioManager instance with icon extractor");
 
                         // CRITICAL FIX: Create AudioManager with timeout and icon extractor
-                        var createManagerTask = Task.Run(() =>
-                        {
+                        var createManagerTask = Task.Run(() => {
                             audioManagerLogger.LogInformation("Instantiating AudioManager with icon support");
                             return new AudioManager(audioManagerLogger, enableDetailedLogging: false, _iconExtractor);
                         });
@@ -1047,14 +1142,12 @@ namespace UniMixerServer.UI
                         _audioManager = await createManagerTask.WaitAsync(createCombined.Token);
                         audioManagerLogger.LogInformation("AudioManager created successfully with icon support");
                     }
-                    catch (OperationCanceledException)
-                    {
+                    catch (OperationCanceledException) {
                         taskLogger.LogWarning("AudioManager creation timed out");
                         throw new TimeoutException("AudioManager creation timed out after 5 seconds");
                     }
 
-                    if (_audioManager == null)
-                    {
+                    if (_audioManager == null) {
                         throw new InvalidOperationException("AudioManager is null after creation");
                     }
 
@@ -1064,8 +1157,7 @@ namespace UniMixerServer.UI
                     // CRITICAL FIX: Load sessions with aggressive timeout
                     List<AudioSession> initialSessions = new List<AudioSession>();
 
-                    try
-                    {
+                    try {
                         using var sessionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                         using var sessionCombined = CancellationTokenSource.CreateLinkedTokenSource(
                             _cancellationTokenSource.Token, sessionTimeout.Token);
@@ -1075,12 +1167,10 @@ namespace UniMixerServer.UI
 
                         taskLogger.LogInformation($"Loaded {initialSessions.Count} initial sessions");
                     }
-                    catch (OperationCanceledException)
-                    {
+                    catch (OperationCanceledException) {
                         taskLogger.LogWarning("Initial session load timed out, continuing with empty list");
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         taskLogger.LogError(ex, "Failed to get initial sessions, continuing with empty list");
                     }
 
@@ -1090,61 +1180,51 @@ namespace UniMixerServer.UI
                     taskLogger.LogInformation("Updating UI with initialization results");
 
                     // CRITICAL FIX: Safe UI update with proper checks
-                    SafeUpdateUI(() =>
-                    {
-                        try
-                        {
+                    SafeUpdateUI(() => {
+                        try {
                             _statusLabel.Text = "🟢 Ready";
                             _statusLabel.ForeColor = AccentGreen;
                             _sessionCountLabel.Text = $"{_currentSessions.Count} sessions loaded";
 
-                            if (_currentSessions.Count > 0)
-                            {
+                            // Enable conversion controls now that services are ready
+                            EnableConversionControls();
+
+                            if (_currentSessions.Count > 0) {
                                 UpdateSessionCardsEfficiently();
                             }
                         }
-                        catch (Exception uiEx)
-                        {
+                        catch (Exception uiEx) {
                             taskLogger.LogError(uiEx, "Error updating UI after initialization");
                         }
                     });
 
                     taskLogger.LogInformation("Desktop application initialized successfully");
                 }
-                catch (OperationCanceledException)
-                {
+                catch (OperationCanceledException) {
                     taskLogger.LogInformation("Background initialization cancelled");
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     taskLogger.LogError(ex, "Critical error in background initialization");
 
-                    SafeUpdateUI(() =>
-                    {
-                        try
-                        {
+                    SafeUpdateUI(() => {
+                        try {
                             _statusLabel.Text = "❌ Initialization Failed";
                             _statusLabel.ForeColor = AccentRed;
                             _sessionCountLabel.Text = "Error - check logs";
                         }
-                        catch (Exception uiEx)
-                        {
+                        catch (Exception uiEx) {
                             taskLogger.LogError(uiEx, "Failed to update UI with error state");
                         }
                     });
                 }
-            }, _cancellationTokenSource.Token).ContinueWith(task =>
-            {
-                if (task.IsFaulted)
-                {
+            }, _cancellationTokenSource.Token).ContinueWith(task => {
+                if (task.IsFaulted) {
                     startupLogger.LogError(task.Exception, "Background initialization task faulted");
                 }
-                else if (task.IsCanceled)
-                {
+                else if (task.IsCanceled) {
                     startupLogger.LogInformation("Background initialization task was cancelled");
                 }
-                else
-                {
+                else {
                     startupLogger.LogInformation("Background initialization task completed successfully");
                 }
             }, TaskScheduler.Default);
@@ -1153,25 +1233,20 @@ namespace UniMixerServer.UI
         }
 
         // CRITICAL FIX: Safer background refresh loop
-        private async Task BackgroundRefreshLoopSafe()
-        {
+        private async Task BackgroundRefreshLoopSafe() {
             var backgroundRefreshLogger = new DesktopLogger("BackgroundRefreshLoopSafe");
             backgroundRefreshLogger.LogInformation("Entering BackgroundRefreshLoopSafe - starting background refresh loop");
 
             // CRITICAL FIX: Only start refresh loop if auto-refresh is enabled and form is properly initialized
-            if (!_isInitialized || _audioManager == null)
-            {
+            if (!_isInitialized || _audioManager == null) {
                 backgroundRefreshLogger.LogInformation("Skipping background refresh - not initialized or no audio manager");
                 return;
             }
 
-            while (!_cancellationTokenSource.Token.IsCancellationRequested && !_isDisposing)
-            {
-                try
-                {
+            while (!_cancellationTokenSource.Token.IsCancellationRequested && !_isDisposing) {
+                try {
                     if (_isInitialized && _audioManager != null && !_isRefreshing &&
-                        _autoRefreshToggle?.Checked == true)
-                    {
+                        _autoRefreshToggle?.Checked == true) {
                         _isRefreshing = true;
 
                         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(2)); // Shorter timeout
@@ -1179,18 +1254,15 @@ namespace UniMixerServer.UI
                             _cancellationTokenSource.Token, timeoutCts.Token);
 
                         List<AudioSession> sessions = null;
-                        try
-                        {
+                        try {
                             sessions = await _audioManager.GetAllAudioSessionsAsync();
                         }
-                        catch (OperationCanceledException)
-                        {
+                        catch (OperationCanceledException) {
                             // Timeout or cancellation, skip this update
                             sessions = null;
                         }
 
-                        if (sessions != null && SessionsHaveChanged(sessions) && !_isDisposing)
-                        {
+                        if (sessions != null && SessionsHaveChanged(sessions) && !_isDisposing) {
                             _currentSessions = sessions;
                             _lastUpdate = DateTime.Now;
                         }
@@ -1201,35 +1273,29 @@ namespace UniMixerServer.UI
                     // CRITICAL FIX: Longer delay between refreshes to prevent overwhelming
                     await Task.Delay(7000, _cancellationTokenSource.Token); // 7 second intervals
                 }
-                catch (OperationCanceledException)
-                {
+                catch (OperationCanceledException) {
                     break;
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     var refreshLogger = new DesktopLogger("BackgroundRefresh");
                     refreshLogger.LogError(ex, "Error in background refresh");
                     _isRefreshing = false;
 
-                    try
-                    {
+                    try {
                         await Task.Delay(15000, _cancellationTokenSource.Token); // Longer wait on error
                     }
-                    catch (OperationCanceledException)
-                    {
+                    catch (OperationCanceledException) {
                         break;
                     }
                 }
             }
         }
 
-        private bool SessionsHaveChanged(List<AudioSession> newSessions)
-        {
+        private bool SessionsHaveChanged(List<AudioSession> newSessions) {
             var logger = new DesktopLogger("SessionsHaveChanged");
             logger.LogDebug($"Entering SessionsHaveChanged - comparing {_currentSessions.Count} current vs {newSessions.Count} new sessions");
 
-            try
-            {
+            try {
                 // Create deduplicated session lists for comparison
                 var currentDeduped = DeduplicateSessions(_currentSessions);
                 var newDeduped = DeduplicateSessions(newSessions);
@@ -1239,17 +1305,14 @@ namespace UniMixerServer.UI
 
                 // Create lookup for efficient comparison - handle duplicates safely
                 var currentLookup = new Dictionary<string, AudioSession>();
-                foreach (var session in currentDeduped)
-                {
+                foreach (var session in currentDeduped) {
                     var key = GetSessionKey(session);
-                    if (!currentLookup.ContainsKey(key))
-                    {
+                    if (!currentLookup.ContainsKey(key)) {
                         currentLookup[key] = session;
                     }
                 }
 
-                foreach (var session in newDeduped)
-                {
+                foreach (var session in newDeduped) {
                     var key = GetSessionKey(session);
                     if (!currentLookup.TryGetValue(key, out var existing))
                         return true; // New session
@@ -1263,23 +1326,19 @@ namespace UniMixerServer.UI
 
                 return false;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Error in SessionsHaveChanged: {ex.Message}");
                 return true; // Assume changed to trigger refresh on error
             }
         }
 
-        private List<AudioSession> DeduplicateSessions(List<AudioSession> sessions)
-        {
+        private List<AudioSession> DeduplicateSessions(List<AudioSession> sessions) {
             var seenKeys = new HashSet<string>();
             var deduplicated = new List<AudioSession>();
 
-            foreach (var session in sessions)
-            {
+            foreach (var session in sessions) {
                 var key = GetSessionKey(session);
-                if (!seenKeys.Contains(key))
-                {
+                if (!seenKeys.Contains(key)) {
                     seenKeys.Add(key);
                     deduplicated.Add(session);
                 }
@@ -1288,81 +1347,67 @@ namespace UniMixerServer.UI
             return deduplicated;
         }
 
-        private string GetSessionKey(AudioSession session)
-        {
+        private string GetSessionKey(AudioSession session) {
             return $"{session.ProcessId}_{session.ProcessName}";
         }
 
-        private void OnUIUpdateTick(object? sender, EventArgs e)
-        {
+        private void OnUIUpdateTick(object? sender, EventArgs e) {
             var uiUpdateLogger = new DesktopLogger("OnUIUpdateTick");
             uiUpdateLogger.LogDebug("Entering OnUIUpdateTick - periodic UI update");
 
             if (!_isInitialized) return;
 
-            try
-            {
+            try {
                 // Update session count
                 _sessionCountLabel.Text = $"{_currentSessions.Count} sessions";
 
                 // Only update session cards if data has changed
-                if (_currentSessions.Any())
-                {
+                if (_currentSessions.Any()) {
                     UpdateSessionCardsEfficiently();
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 var uiErrorLogger = new DesktopLogger("UIUpdate");
                 uiErrorLogger.LogError(ex, "Error updating UI");
             }
         }
 
-        private void UpdateSessionCardsEfficiently()
-        {
+        private void UpdateSessionCardsEfficiently() {
             var updateCardsLogger = new DesktopLogger("UpdateSessionCardsEfficiently");
             updateCardsLogger.LogDebug("Entering UpdateSessionCardsEfficiently - updating session cards UI");
 
-            try
-            {
+            try {
                 updateCardsLogger.LogDebug($"InvokeRequired: {this.InvokeRequired}, IsDisposing: {_isDisposing}, IsDisposed: {IsDisposed}");
 
-                if (_isDisposing || IsDisposed)
-                {
+                if (_isDisposing || IsDisposed) {
                     updateCardsLogger.LogDebug("Form is disposing/disposed, skipping UI update");
                     return;
                 }
 
-                if (!this.InvokeRequired)
-                {
+                if (!this.InvokeRequired) {
                     updateCardsLogger.LogDebug("Calling UpdateSessionCardsInternal directly");
                     UpdateSessionCardsInternal();
                     updateCardsLogger.LogDebug("UpdateSessionCardsInternal completed successfully");
                 }
-                else
-                {
+                else {
                     updateCardsLogger.LogDebug("Using BeginInvoke for UpdateSessionCardsInternal");
-                    this.BeginInvoke(new Action(() =>
-                    {
+                    this.BeginInvoke(new Action(() => {
                         updateCardsLogger.LogDebug("BeginInvoke callback executing");
                         UpdateSessionCardsInternal();
                         updateCardsLogger.LogDebug("BeginInvoke callback completed");
                     }));
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 updateCardsLogger.LogError(ex, "Error in UpdateSessionCardsEfficiently");
             }
         }
 
-        private void UpdateSessionCardsInternal()
-        {
+        private void UpdateSessionCardsInternal() {
             var internalLogger = new DesktopLogger("UpdateSessionCardsInternal");
             internalLogger.LogDebug("Entering UpdateSessionCardsInternal");
 
-            if (_isDisposing || IsDisposed || _sessionContainer == null)
-            {
+            if (_isDisposing || IsDisposed || _sessionContainer == null) {
                 internalLogger.LogDebug("Form disposing or session container null, exiting");
                 return;
             }
@@ -1371,8 +1416,7 @@ namespace UniMixerServer.UI
             // Suspend layout to prevent flickering
             _sessionContainer.SuspendLayout();
 
-            try
-            {
+            try {
                 internalLogger.LogDebug($"Starting with {_currentSessions.Count} current sessions");
 
                 // Filter sessions based on current selection
@@ -1388,33 +1432,28 @@ namespace UniMixerServer.UI
                 var sessionList = filteredSessions.Take(20).ToList(); // Limit for performance
                 internalLogger.LogDebug($"Processing {sessionList.Count} sessions (limited to 20)");
 
-                for (int i = 0; i < sessionList.Count; i++)
-                {
+                for (int i = 0; i < sessionList.Count; i++) {
                     var session = sessionList[i];
                     internalLogger.LogDebug($"Processing session {i + 1}/{sessionList.Count}: {session.ProcessName}");
 
-                    try
-                    {
+                    try {
                         var key = GetSessionKey(session);
 
                         // Skip duplicate sessions (same process can have multiple sessions)
-                        if (sessionKeys.Contains(key))
-                        {
+                        if (sessionKeys.Contains(key)) {
                             internalLogger.LogDebug($"Skipping duplicate key: {key}");
                             continue;
                         }
 
                         sessionKeys.Add(key);
 
-                        if (_sessionCards.ContainsKey(key))
-                        {
+                        if (_sessionCards.ContainsKey(key)) {
                             internalLogger.LogDebug($"Updating existing card for: {session.ProcessName}");
                             // Update existing card efficiently
                             UpdateSessionCard(_sessionCards[key], session);
                             internalLogger.LogDebug($"Updated card for: {session.ProcessName}");
                         }
-                        else
-                        {
+                        else {
                             internalLogger.LogDebug($"Creating new card for: {session.ProcessName}");
                             // Create new card only if key doesn't exist
                             var newCard = CreateSessionCard(session);
@@ -1425,8 +1464,7 @@ namespace UniMixerServer.UI
                             internalLogger.LogDebug($"Added card to container for: {session.ProcessName}");
                         }
                     }
-                    catch (Exception sessionEx)
-                    {
+                    catch (Exception sessionEx) {
                         internalLogger.LogError(sessionEx, $"Error processing session: {session.ProcessName}");
                         // Continue with other sessions
                     }
@@ -1437,20 +1475,16 @@ namespace UniMixerServer.UI
                 var keysToRemove = existingKeys.Where(k => !sessionKeys.Contains(k)).ToList();
                 internalLogger.LogDebug($"Removing {keysToRemove.Count} obsolete cards");
 
-                foreach (var key in keysToRemove)
-                {
-                    try
-                    {
-                        if (_sessionCards.TryGetValue(key, out var cardToRemove))
-                        {
+                foreach (var key in keysToRemove) {
+                    try {
+                        if (_sessionCards.TryGetValue(key, out var cardToRemove)) {
                             _sessionContainer.Controls.Remove(cardToRemove);
                             cardToRemove?.Dispose();
                             _sessionCards.Remove(key);
                             internalLogger.LogDebug($"Removed card with key: {key}");
                         }
                     }
-                    catch (Exception removeEx)
-                    {
+                    catch (Exception removeEx) {
                         internalLogger.LogError(removeEx, $"Error removing card with key: {key}");
                     }
                 }
@@ -1465,34 +1499,27 @@ namespace UniMixerServer.UI
 
                 internalLogger.LogDebug("UpdateSessionCardsInternal completed successfully");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 internalLogger.LogError(ex, "Error updating session cards");
                 Console.WriteLine($"Error updating session cards: {ex.Message}");
             }
-            finally
-            {
-                try
-                {
+            finally {
+                try {
                     internalLogger.LogDebug("Resuming layout");
                     // Resume layout to apply changes
                     _sessionContainer.ResumeLayout(true);
                     internalLogger.LogDebug("Layout resumed successfully");
                 }
-                catch (Exception layoutEx)
-                {
+                catch (Exception layoutEx) {
                     internalLogger.LogError(layoutEx, "Error resuming layout");
                 }
             }
         }
 
-        private void UpdateSessionCard(Panel card, AudioSession session)
-        {
+        private void UpdateSessionCard(Panel card, AudioSession session) {
             // Update card controls efficiently without recreating
-            foreach (Control control in card.Controls)
-            {
-                switch (control)
-                {
+            foreach (Control control in card.Controls) {
+                switch (control) {
                     case Label label when label.Text.StartsWith("🎵"):
                         if (label.Text != $"🎵 {session.ProcessName}")
                             label.Text = $"🎵 {session.ProcessName}";
@@ -1500,8 +1527,7 @@ namespace UniMixerServer.UI
 
                     case Label label when label.Text.Contains("🔊") || label.Text.Contains("🔇"):
                         var volumeText = session.IsMuted ? "🔇 MUTED" : $"🔊 {session.Volume:P0}";
-                        if (label.Text != volumeText)
-                        {
+                        if (label.Text != volumeText) {
                             label.Text = volumeText;
                             label.ForeColor = session.IsMuted ? AccentRed : GetVolumeColor(session.Volume);
                         }
@@ -1509,14 +1535,12 @@ namespace UniMixerServer.UI
 
                     case Label label when label.Text == "●" || label.Text == "○":
                         var stateText = session.SessionState == 1 ? "●" : "○";
-                        var stateColor = session.SessionState switch
-                        {
+                        var stateColor = session.SessionState switch {
                             1 => AccentGreen,
                             0 => AccentOrange,
                             _ => TextSecondary
                         };
-                        if (label.Text != stateText)
-                        {
+                        if (label.Text != stateText) {
                             label.Text = stateText;
                             label.ForeColor = stateColor;
                         }
@@ -1525,8 +1549,7 @@ namespace UniMixerServer.UI
                     case Panel panel when panel.Height == 4: // Volume bar
                         var newWidth = (int)((card.Width - 80) * session.Volume);
                         var newColor = session.IsMuted ? AccentRed : GetVolumeColor(session.Volume);
-                        if (panel.Width != newWidth || panel.BackColor != newColor)
-                        {
+                        if (panel.Width != newWidth || panel.BackColor != newColor) {
                             panel.Width = newWidth;
                             panel.BackColor = newColor;
                         }
@@ -1541,51 +1564,41 @@ namespace UniMixerServer.UI
             }
         }
 
-        private void ReorderSessionCards(List<AudioSession> orderedSessions)
-        {
+        private void ReorderSessionCards(List<AudioSession> orderedSessions) {
             // Only reorder if necessary (expensive operation)
-            for (int i = 0; i < orderedSessions.Count && i < _sessionContainer.Controls.Count; i++)
-            {
+            for (int i = 0; i < orderedSessions.Count && i < _sessionContainer.Controls.Count; i++) {
                 var session = orderedSessions[i];
                 var key = GetSessionKey(session);
 
-                if (_sessionCards.TryGetValue(key, out var card))
-                {
+                if (_sessionCards.TryGetValue(key, out var card)) {
                     var currentIndex = _sessionContainer.Controls.IndexOf(card);
-                    if (currentIndex != i)
-                    {
+                    if (currentIndex != i) {
                         _sessionContainer.Controls.SetChildIndex(card, i);
                     }
                 }
             }
         }
 
-        private void UpdateSessionCards()
-        {
+        private void UpdateSessionCards() {
             // Legacy method - now redirects to efficient version
             UpdateSessionCardsEfficiently();
         }
 
-        private List<AudioSession> FilterSessions(List<AudioSession> sessions)
-        {
-            return _deviceFilter?.SelectedIndex switch
-            {
+        private List<AudioSession> FilterSessions(List<AudioSession> sessions) {
+            return _deviceFilter?.SelectedIndex switch {
                 1 => sessions, // All devices
                 2 => sessions.Where(s => s.SessionState == 1).ToList(), // Active only
                 _ => sessions.Where(s => !string.IsNullOrEmpty(s.ProcessName) && s.ProcessId > 0).ToList() // Default device
             };
         }
 
-        private Panel CreateSessionCard(AudioSession session)
-        {
+        private Panel CreateSessionCard(AudioSession session) {
             var cardLogger = new DesktopLogger("CreateSessionCard");
             cardLogger.LogDebug($"Creating session card for: {session.ProcessName}");
 
-            try
-            {
+            try {
                 cardLogger.LogDebug("Creating main card panel");
-                var card = new Panel
-                {
+                var card = new Panel {
                     Size = new Size(_sessionContainer.Width - 40, 80), // Simplified height
                     BackColor = AccentBg,
                     Margin = new Padding(0, 0, 0, 12),
@@ -1596,8 +1609,7 @@ namespace UniMixerServer.UI
                 cardLogger.LogDebug("Main card panel created");
 
                 // Create process icon display with immediate default icon
-                var iconPanel = new PictureBox
-                {
+                var iconPanel = new PictureBox {
                     Size = new Size(32, 32),
                     Location = new Point(0, 8),
                     SizeMode = PictureBoxSizeMode.StretchImage,
@@ -1605,83 +1617,67 @@ namespace UniMixerServer.UI
                 };
 
                 // Set a simple default icon immediately (create inline to avoid delays)
-                try
-                {
+                try {
                     var defaultBitmap = new Bitmap(32, 32);
-                    using (var g = Graphics.FromImage(defaultBitmap))
-                    {
+                    using (var g = Graphics.FromImage(defaultBitmap)) {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
                         g.FillEllipse(Brushes.DarkBlue, 4, 4, 24, 24);
                         g.FillEllipse(Brushes.LightBlue, 8, 8, 16, 16);
-                        using (var font = new Font("Segoe UI", 8, FontStyle.Bold))
-                        {
+                        using (var font = new Font("Segoe UI", 8, FontStyle.Bold)) {
                             g.DrawString("♪", font, Brushes.White, new PointF(11, 9));
                         }
                     }
                     iconPanel.Image = defaultBitmap;
                 }
-                catch
-                {
+                catch {
                     // If even this fails, just leave it empty
                 }
 
                 // Schedule icon loading for later (fire-and-forget)
-                Task.Run(async () =>
-                {
-                    try
-                    {
+                Task.Run(async () => {
+                    try {
                         // Small delay to let UI render first
                         await Task.Delay(50);
-                        
+
                         Image? processIcon = null;
-                        
+
                         // First try to get from existing icon path
-                        if (!string.IsNullOrEmpty(session.IconPath) && File.Exists(session.IconPath))
-                        {
+                        if (!string.IsNullOrEmpty(session.IconPath) && File.Exists(session.IconPath)) {
                             processIcon = Image.FromFile(session.IconPath);
                         }
                         // Fallback to icon extractor (with timeout)
-                        else if (_iconExtractor != null)
-                        {
+                        else if (_iconExtractor != null) {
                             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                            try
-                            {
+                            try {
                                 var iconTask = _iconExtractor.GetProcessIconImageAsync(session.ProcessId, session.ProcessName);
                                 processIcon = await iconTask.WaitAsync(cts.Token);
                             }
-                            catch (OperationCanceledException)
-                            {
+                            catch (OperationCanceledException) {
                                 // Timeout - keep default icon
                                 return;
                             }
                         }
 
                         // Update icon if we found one (check if control still exists)
-                        if (processIcon != null && !iconPanel.IsDisposed && iconPanel.IsHandleCreated)
-                        {
-                            if (iconPanel.InvokeRequired)
-                            {
-                                iconPanel.BeginInvoke(new Action(() =>
-                                {
+                        if (processIcon != null && !iconPanel.IsDisposed && iconPanel.IsHandleCreated) {
+                            if (iconPanel.InvokeRequired) {
+                                iconPanel.BeginInvoke(new Action(() => {
                                     if (!iconPanel.IsDisposed)
                                         iconPanel.Image = processIcon;
                                 }));
                             }
-                            else
-                            {
+                            else {
                                 iconPanel.Image = processIcon;
                             }
                         }
                     }
-                    catch
-                    {
+                    catch {
                         // Ignore all errors in background icon loading
                     }
                 });
 
                 cardLogger.LogDebug("Creating process label");
-                var processLabel = new Label
-                {
+                var processLabel = new Label {
                     Text = session.ProcessName,
                     Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                     ForeColor = TextPrimary,
@@ -1692,8 +1688,7 @@ namespace UniMixerServer.UI
                 cardLogger.LogDebug("Process label created");
 
                 cardLogger.LogDebug("Creating volume label");
-                var volumeLabel = new Label
-                {
+                var volumeLabel = new Label {
                     Text = session.IsMuted ? "🔇 MUTED" : $"🔊 {session.Volume:P0}",
                     Font = new Font("Segoe UI", 10F),
                     ForeColor = session.IsMuted ? AccentRed : GetVolumeColor(session.Volume),
@@ -1704,8 +1699,7 @@ namespace UniMixerServer.UI
                 cardLogger.LogDebug("Volume label created");
 
                 cardLogger.LogDebug("Creating PID label");
-                var pidLabel = new Label
-                {
+                var pidLabel = new Label {
                     Text = $"PID: {session.ProcessId}",
                     Font = new Font("Segoe UI", 9F),
                     ForeColor = TextSecondary,
@@ -1716,8 +1710,7 @@ namespace UniMixerServer.UI
                 cardLogger.LogDebug("PID label created");
 
                 // Status indicator
-                var statusIndicator = new Label
-                {
+                var statusIndicator = new Label {
                     Text = "●",
                     Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                     ForeColor = session.SessionState == 1 ? AccentGreen : AccentOrange,
@@ -1737,13 +1730,11 @@ namespace UniMixerServer.UI
                 cardLogger.LogDebug($"Session card created successfully for: {session.ProcessName}");
                 return card;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 cardLogger.LogError(ex, $"Error creating session card for: {session.ProcessName}");
 
                 // Return a minimal error card
-                return new Panel
-                {
+                return new Panel {
                     Size = new Size(_sessionContainer.Width - 40, 40),
                     BackColor = AccentRed,
                     Controls = { new Label { Text = $"Error: {session.ProcessName}", ForeColor = Color.White, Dock = DockStyle.Fill } }
@@ -1751,11 +1742,9 @@ namespace UniMixerServer.UI
             }
         }
 
-        private Panel CreateSessionCardComplex(AudioSession session)
-        {
+        private Panel CreateSessionCardComplex(AudioSession session) {
             // This is the original complex implementation - keeping for reference
-            var card = new Panel
-            {
+            var card = new Panel {
                 Size = new Size(_sessionContainer.Width - 40, 120), // Increased height for more controls
                 BackColor = AccentBg,
                 Margin = new Padding(0, 0, 0, 12),
@@ -1765,8 +1754,7 @@ namespace UniMixerServer.UI
             };
 
             // Add subtle border and hover effects
-            card.Paint += (s, e) =>
-            {
+            card.Paint += (s, e) => {
                 using var pen = new Pen(BorderColor, 1);
                 e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
             };
@@ -1775,8 +1763,7 @@ namespace UniMixerServer.UI
             card.MouseLeave += (s, e) => card.BackColor = AccentBg;
 
             // Status indicator circle
-            var statusIndicator = new Label
-            {
+            var statusIndicator = new Label {
                 Text = "●",
                 Font = new Font("Segoe UI", 16F, FontStyle.Bold),
                 ForeColor = session.SessionState == 1 ? AccentGreen : AccentOrange,
@@ -1786,8 +1773,7 @@ namespace UniMixerServer.UI
             };
 
             // Process name (main title)
-            var processLabel = new Label
-            {
+            var processLabel = new Label {
                 Text = session.ProcessName,
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                 ForeColor = TextPrimary,
@@ -1797,8 +1783,7 @@ namespace UniMixerServer.UI
             };
 
             // Display name (subtitle)
-            var displayLabel = new Label
-            {
+            var displayLabel = new Label {
                 Text = string.IsNullOrEmpty(session.DisplayName) ? $"PID: {session.ProcessId}" : session.DisplayName,
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextSecondary,
@@ -1808,8 +1793,7 @@ namespace UniMixerServer.UI
             };
 
             // Volume percentage
-            var volumePercentLabel = new Label
-            {
+            var volumePercentLabel = new Label {
                 Text = $"{session.Volume:P0}",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = GetVolumeColor(session.Volume),
@@ -1819,8 +1803,7 @@ namespace UniMixerServer.UI
             };
 
             // Mute status
-            var muteStatusLabel = new Label
-            {
+            var muteStatusLabel = new Label {
                 Text = session.IsMuted ? "🔇" : "🔊",
                 Font = new Font("Segoe UI", 12F),
                 ForeColor = session.IsMuted ? AccentRed : TextSecondary,
@@ -1830,8 +1813,7 @@ namespace UniMixerServer.UI
             };
 
             // Volume slider for direct control
-            var volumeSlider = new TrackBar
-            {
+            var volumeSlider = new TrackBar {
                 Minimum = 0,
                 Maximum = 100,
                 Value = (int)(session.Volume * 100),
@@ -1843,29 +1825,24 @@ namespace UniMixerServer.UI
 
             // Volume change event handler
             bool isSliderUpdate = false;
-            volumeSlider.ValueChanged += async (s, e) =>
-            {
+            volumeSlider.ValueChanged += async (s, e) => {
                 if (isSliderUpdate) return; // Prevent recursion
 
-                try
-                {
+                try {
                     float newVolume = volumeSlider.Value / 100.0f;
-                    if (_audioManager != null)
-                    {
+                    if (_audioManager != null) {
                         await _audioManager.SetProcessVolumeAsync(session.ProcessId, newVolume);
                         volumePercentLabel.Text = $"{newVolume:P0}";
                         volumePercentLabel.ForeColor = GetVolumeColor(newVolume);
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     Console.WriteLine($"Failed to set volume for {session.ProcessName}: {ex.Message}");
                 }
             };
 
             // Quick mute button
-            var muteButton = new Button
-            {
+            var muteButton = new Button {
                 Text = session.IsMuted ? "Unmute" : "Mute",
                 Size = new Size(60, 25),
                 Location = new Point(210, 45),
@@ -1876,13 +1853,10 @@ namespace UniMixerServer.UI
                 FlatAppearance = { BorderSize = 0 }
             };
 
-            muteButton.Click += async (s, e) =>
-            {
-                try
-                {
+            muteButton.Click += async (s, e) => {
+                try {
                     bool newMuteState = !session.IsMuted;
-                    if (_audioManager != null)
-                    {
+                    if (_audioManager != null) {
                         await _audioManager.MuteProcessAsync(session.ProcessId, newMuteState);
                         muteButton.Text = newMuteState ? "Unmute" : "Mute";
                         muteButton.BackColor = newMuteState ? AccentGreen : AccentRed;
@@ -1890,15 +1864,13 @@ namespace UniMixerServer.UI
                         muteStatusLabel.ForeColor = newMuteState ? AccentRed : TextSecondary;
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     Console.WriteLine($"Failed to mute/unmute {session.ProcessName}: {ex.Message}");
                 }
             };
 
             // Quick volume buttons
-            var quickVolPanel = new FlowLayoutPanel
-            {
+            var quickVolPanel = new FlowLayoutPanel {
                 FlowDirection = FlowDirection.LeftToRight,
                 AutoSize = true,
                 Location = new Point(24, 75),
@@ -1922,8 +1894,7 @@ namespace UniMixerServer.UI
             quickVolPanel.Controls.AddRange(new Control[] { vol0, vol25, vol50, vol75, vol100 });
 
             // Process info button
-            var infoButton = new Button
-            {
+            var infoButton = new Button {
                 Text = "ℹ️",
                 Size = new Size(25, 25),
                 Location = new Point(280, 45),
@@ -1934,8 +1905,7 @@ namespace UniMixerServer.UI
                 FlatAppearance = { BorderSize = 0 }
             };
 
-            infoButton.Click += (s, e) =>
-            {
+            infoButton.Click += (s, e) => {
                 var info = $"Process: {session.ProcessName}\n" +
                           $"PID: {session.ProcessId}\n" +
                           $"Display Name: {session.DisplayName}\n" +
@@ -1951,6 +1921,8 @@ namespace UniMixerServer.UI
 
             // Context menu for advanced operations
             var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add("🎨 Convert Icon to LVGL", null, async (s, e) => await ConvertSingleProcessIcon(session.ProcessName));
+            contextMenu.Items.Add("-"); // Separator
             contextMenu.Items.Add("Kill Process", null, async (s, e) => await KillProcess(session.ProcessId));
             contextMenu.Items.Add("Open Process Location", null, (s, e) => OpenProcessLocation(session.ProcessId));
             contextMenu.Items.Add("-"); // Separator
@@ -1970,10 +1942,8 @@ namespace UniMixerServer.UI
             return card;
         }
 
-        private Button CreateQuickVolumeButton(string text, int volume, AudioSession session)
-        {
-            var btn = new Button
-            {
+        private Button CreateQuickVolumeButton(string text, int volume, AudioSession session) {
+            var btn = new Button {
                 Text = text,
                 Size = new Size(35, 20),
                 FlatStyle = FlatStyle.Flat,
@@ -1984,18 +1954,14 @@ namespace UniMixerServer.UI
                 FlatAppearance = { BorderSize = 0 }
             };
 
-            btn.Click += async (s, e) =>
-            {
-                try
-                {
+            btn.Click += async (s, e) => {
+                try {
                     float newVolume = volume / 100.0f;
-                    if (_audioManager != null)
-                    {
+                    if (_audioManager != null) {
                         await _audioManager.SetProcessVolumeAsync(session.ProcessId, newVolume);
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     Console.WriteLine($"Failed to set volume for {session.ProcessName}: {ex.Message}");
                 }
             };
@@ -2003,10 +1969,8 @@ namespace UniMixerServer.UI
             return btn;
         }
 
-        private string GetSessionStateText(int state)
-        {
-            return state switch
-            {
+        private string GetSessionStateText(int state) {
+            return state switch {
                 0 => "Inactive",
                 1 => "Active",
                 2 => "Expired",
@@ -2014,69 +1978,55 @@ namespace UniMixerServer.UI
             };
         }
 
-        private async Task KillProcess(int processId)
-        {
-            try
-            {
+        private async Task KillProcess(int processId) {
+            try {
                 var result = MessageBox.Show($"Are you sure you want to kill process {processId}?",
                                            "Confirm Kill Process",
                                            MessageBoxButtons.YesNo,
                                            MessageBoxIcon.Warning);
 
-                if (result == DialogResult.Yes)
-                {
+                if (result == DialogResult.Yes) {
                     var process = Process.GetProcessById(processId);
                     process.Kill();
                     await RefreshSessionsAsync();
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 MessageBox.Show($"Failed to kill process: {ex.Message}", "Error",
                               MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void OpenProcessLocation(int processId)
-        {
-            try
-            {
+        private void OpenProcessLocation(int processId) {
+            try {
                 var process = Process.GetProcessById(processId);
                 var filename = process.MainModule?.FileName;
-                if (!string.IsNullOrEmpty(filename))
-                {
+                if (!string.IsNullOrEmpty(filename)) {
                     Process.Start("explorer.exe", $"/select,\"{filename}\"");
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 MessageBox.Show($"Failed to open process location: {ex.Message}", "Error",
                               MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private async void SetVolumeQuick(AudioSession session, float volume, TrackBar slider, Label label)
-        {
-            try
-            {
-                if (_audioManager != null)
-                {
+        private async void SetVolumeQuick(AudioSession session, float volume, TrackBar slider, Label label) {
+            try {
+                if (_audioManager != null) {
                     await _audioManager.SetProcessVolumeAsync(session.ProcessId, volume);
                     slider.Value = (int)(volume * 100);
                     label.Text = $"{volume:P0}";
                     label.ForeColor = GetVolumeColor(volume);
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Failed to set volume for {session.ProcessName}: {ex.Message}");
             }
         }
 
-        private Color GetVolumeColor(float volume)
-        {
-            return volume switch
-            {
+        private Color GetVolumeColor(float volume) {
+            return volume switch {
                 >= 0.8f => AccentGreen,
                 >= 0.5f => AccentBlue,
                 >= 0.2f => AccentOrange,
@@ -2084,15 +2034,13 @@ namespace UniMixerServer.UI
             };
         }
 
-        private async Task RefreshSessionsAsync()
-        {
+        private async Task RefreshSessionsAsync() {
             var refreshSessionsLogger = new DesktopLogger("RefreshSessionsAsync");
             refreshSessionsLogger.LogInformation("Entering RefreshSessionsAsync - manually refreshing audio sessions");
 
             if (_audioManager == null || _isRefreshing) return;
 
-            try
-            {
+            try {
                 _statusLabel.Text = "🔄 Refreshing...";
                 _statusLabel.ForeColor = AccentOrange;
 
@@ -2103,22 +2051,19 @@ namespace UniMixerServer.UI
                 _statusLabel.Text = "⚡ Ready";
                 _statusLabel.ForeColor = AccentGreen;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _statusLabel.Text = "❌ Error";
                 _statusLabel.ForeColor = AccentRed;
 
                 var logger = new DesktopLogger("Refresh");
                 logger.LogError(ex, "Failed to refresh sessions");
             }
-            finally
-            {
+            finally {
                 _isRefreshing = false;
             }
         }
 
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
+        protected override void OnFormClosing(FormClosingEventArgs e) {
             _isDisposing = true; // CRITICAL FIX: Set disposal flag to stop background operations
             _cancellationTokenSource.Cancel();
             _uiUpdateTimer?.Stop();
@@ -2126,8 +2071,7 @@ namespace UniMixerServer.UI
             base.OnFormClosing(e);
         }
 
-        protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
-        {
+        protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) {
             // Ensure minimum size
             if (width < MinimumSize.Width) width = MinimumSize.Width;
             if (height < MinimumSize.Height) height = MinimumSize.Height;

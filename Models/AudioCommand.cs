@@ -106,4 +106,10 @@ namespace UniMixerServer.Models {
         public bool AutoDetected { get; set; }     // Automatically detected/downloaded
         public bool ManualAssignment { get; set; } // User manually assigned this logo
     }
+
+    public class LogoFormat {
+        public string Format { get; set; } = "png"; // "png", "lvgl_bin", "lvgl_indexed", etc.
+        public int Width { get; set; } = 32;
+        public int Height { get; set; } = 32;
+    }
 }

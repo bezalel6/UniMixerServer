@@ -16,6 +16,12 @@ using System.Threading.Tasks;
 namespace UniMixerServer {
     class Program {
         static async Task Main(string[] args) {
+            // Check if we should test Chrome icon conversion
+            if (args.Length > 0 && args[0].Equals("--test-chrome", StringComparison.OrdinalIgnoreCase)) {
+                await TestChromeIconConversion();
+                return;
+            }
+
             // Check if we should run the audio manager test
             if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase)) {
                 await AudioManagerTester.RunTest(args);
@@ -211,6 +217,102 @@ namespace UniMixerServer {
             }
             catch (Exception ex) {
                 Console.WriteLine($"Fatal error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Environment.Exit(1);
+            }
+        }
+
+        private static async Task TestChromeIconConversion() {
+            Console.WriteLine("=== Chrome Icon Conversion Test ===");
+            Console.WriteLine($"Starting test at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine();
+
+            try {
+                // Setup basic console logging for the test
+                var loggerFactory = LoggerFactory.Create(builder =>
+                    builder.AddConsole()
+                           .SetMinimumLevel(LogLevel.Information));
+
+                // Create services
+                Console.WriteLine("Creating services...");
+                var iconExtractorLogger = loggerFactory.CreateLogger<ProcessIconExtractor>();
+                var iconExtractor = new ProcessIconExtractor(iconExtractorLogger);
+
+                var assetServiceLogger = loggerFactory.CreateLogger<AssetService>();
+                var assetService = new AssetService(assetServiceLogger, iconExtractor);
+
+                Console.WriteLine("✓ Services created successfully");
+                Console.WriteLine();
+
+                // Test Chrome icon conversion
+                Console.WriteLine("Testing Chrome icon conversion...");
+                Console.WriteLine("Looking for Chrome process names: chrome, chrome.exe, Google Chrome");
+                Console.WriteLine();
+
+                var chromeProcessNames = new[] { "chrome", "chrome.exe", "Google Chrome" };
+                bool conversionSucceeded = false;
+                string? successfulProcessName = null;
+
+                foreach (var processName in chromeProcessNames) {
+                    Console.WriteLine($"--- Testing process name: '{processName}' ---");
+
+                    try {
+                        var result = await assetService.GetAssetAsync(processName);
+
+                        if (result.Success && result.AssetData != null && result.AssetData.Length > 0) {
+                            Console.WriteLine($"✓ SUCCESS: Converted {processName} icon!");
+                            Console.WriteLine($"  Format: LVGL Binary");
+                            Console.WriteLine($"  Size: {result.AssetData.Length} bytes");
+                            Console.WriteLine($"  Process: {result.ProcessName}");
+
+                            if (result.Metadata != null) {
+                                Console.WriteLine($"  Dimensions: {result.Metadata.Width}x{result.Metadata.Height}");
+                                Console.WriteLine($"  File format: {result.Metadata.Format}");
+                                Console.WriteLine($"  Checksum: {result.Metadata.Checksum}");
+                            }
+
+                            conversionSucceeded = true;
+                            successfulProcessName = processName;
+                            break;
+                        }
+                        else {
+                            Console.WriteLine($"✗ FAILED: {result.ErrorMessage ?? "Unknown error"}");
+                        }
+                    }
+                    catch (Exception ex) {
+                        Console.WriteLine($"✗ ERROR: {ex.Message}");
+                    }
+
+                    Console.WriteLine();
+                }
+
+                Console.WriteLine("=== Test Summary ===");
+                if (conversionSucceeded) {
+                    Console.WriteLine($"✓ Chrome icon conversion SUCCESSFUL using process name: '{successfulProcessName}'");
+                    Console.WriteLine("Check the logs above for detailed conversion information.");
+                    Console.WriteLine("Debug files have been preserved in the assets/debug/lvgl_conversion directory.");
+                }
+                else {
+                    Console.WriteLine("✗ Chrome icon conversion FAILED for all attempted process names");
+                    Console.WriteLine();
+                    Console.WriteLine("Possible reasons:");
+                    Console.WriteLine("- Chrome is not currently running");
+                    Console.WriteLine("- lv_img_conv tool is not properly installed");
+                    Console.WriteLine("- ts-node is not available in PATH");
+                    Console.WriteLine("- Permission issues accessing Chrome process");
+                    Console.WriteLine();
+                    Console.WriteLine("To troubleshoot:");
+                    Console.WriteLine("1. Make sure Chrome is running");
+                    Console.WriteLine("2. Check the detailed logs above");
+                    Console.WriteLine("3. Verify lv_img_conv installation in tools/lv_img_conv/lib/");
+                    Console.WriteLine("4. Ensure ts-node is installed: npm install -g ts-node");
+                }
+
+                Console.WriteLine();
+                Console.WriteLine($"Test completed at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"CRITICAL ERROR during test setup: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
             }

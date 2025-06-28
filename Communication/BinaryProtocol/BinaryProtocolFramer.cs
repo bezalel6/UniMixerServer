@@ -14,7 +14,7 @@ namespace UniMixerServer.Communication.BinaryProtocol {
         private const byte ESCAPE_MARKER = 0x7D;
         private const byte ESCAPE_XOR = 0x20;
         private const byte JSON_MESSAGE_TYPE = 0x01;
-        private const int MAX_PAYLOAD_SIZE = 4096;
+        private const int MAX_PAYLOAD_SIZE = 4096 * 2;
         private const int HEADER_SIZE = 7; // LENGTH(4) + CRC(2) + TYPE(1)
         private const int MESSAGE_TIMEOUT_MS = 1000;
 
@@ -55,7 +55,7 @@ namespace UniMixerServer.Communication.BinaryProtocol {
             var payloadBytes = Encoding.UTF8.GetBytes(jsonPayload);
 
             if (payloadBytes.Length > MAX_PAYLOAD_SIZE) {
-                throw new ArgumentException($"Payload exceeds maximum size of {MAX_PAYLOAD_SIZE} bytes", nameof(jsonPayload));
+                throw new ArgumentException($"Payload exceeds maximum size of {MAX_PAYLOAD_SIZE} bytes: {jsonPayload}", nameof(jsonPayload));
             }
 
             // Calculate CRC16 of original payload
