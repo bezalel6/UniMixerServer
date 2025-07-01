@@ -43,7 +43,7 @@ namespace UniMixerServer.Services {
         public async Task<AssetResponse> GetAssetAsync(string processName) {
             try {
                 var response = new AssetResponse {
-                    MessageType = "AssetResponse",
+                    MessageType = MessageType.ASSET_RESPONSE,
                     ProcessName = processName,
                     DeviceId = Environment.MachineName,
                     Success = false
@@ -105,7 +105,7 @@ namespace UniMixerServer.Services {
             catch (Exception ex) {
                 _logger.LogError(ex, $"Error loading asset for process: {processName}");
                 return new AssetResponse {
-                    MessageType = "AssetResponse",
+                    MessageType = MessageType.ASSET_RESPONSE,
                     ProcessName = processName,
                     DeviceId = Environment.MachineName,
                     Success = false,

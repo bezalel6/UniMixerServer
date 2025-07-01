@@ -172,31 +172,14 @@ namespace UniMixerServer.Communication {
 
         public override async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default) {
             if (!IsConnected) {
-                _logger.LogWarning("Cannot send status - Serial port not connected");
+                _logger.LogWarning("Cannot send status - serial port not connected");
                 return;
             }
 
             try {
-                // Ensure MessageType is set
-                if (string.IsNullOrEmpty(status.MessageType)) {
-                    status.MessageType = "StatusMessage";
-                }
-
                 var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
-
-                var logMessage = $"Sending status: {status.Sessions.Count} sessions, {json.Length} chars (Reason: {status.Reason}";
-                if (!string.IsNullOrEmpty(status.OriginatingDeviceId)) {
-                    logMessage += $", OriginatingDevice: {status.OriginatingDeviceId}";
-                }
-                if (!string.IsNullOrEmpty(status.OriginatingRequestId)) {
-                    logMessage += $", RequestId: {status.OriginatingRequestId}";
-                }
-                logMessage += ")";
-
-                _logger.LogDebug(logMessage);
 
                 // Log outgoing data
                 OutgoingDataLogger.LogOutgoingData(json, "Serial");
@@ -211,6 +194,8 @@ namespace UniMixerServer.Communication {
                     var message = $"{json}\n";
                     await Task.Run(() => _serialPort!.Write(message), cancellationToken);
                 }
+
+                _logger.LogDebug("Status message sent via serial port");
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via serial port");
@@ -219,16 +204,11 @@ namespace UniMixerServer.Communication {
 
         public override async Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default) {
             if (!IsConnected) {
-                _logger.LogWarning("Cannot send asset - Serial port not connected");
+                _logger.LogWarning("Cannot send asset - serial port not connected");
                 return;
             }
 
             try {
-                // Ensure MessageType is set
-                if (string.IsNullOrEmpty(assetResponse.MessageType)) {
-                    assetResponse.MessageType = "AssetResponse";
-                }
-
                 // For serial communication, we'll send asset data as base64 encoded JSON
                 // Create a serializable version with base64 encoded asset data
                 var response = new {

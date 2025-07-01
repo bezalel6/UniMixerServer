@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Core;
 using UniMixerServer.Communication.BinaryProtocol;
+using UniMixerServer.Models;
 
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
@@ -14,7 +15,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
     /// </summary>
     public class BinaryMessageProcessor : IMessageProcessor {
         private readonly ILogger<BinaryMessageProcessor> _logger;
-        private readonly Dictionary<string, MessageHandler> _handlers;
+        private readonly Dictionary<MessageType, MessageHandler> _handlers;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly Logger _incomingDataLogger;
         private readonly BinaryProtocolFramer _framer;
@@ -23,7 +24,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
 
         public BinaryMessageProcessor(ILogger<BinaryMessageProcessor> logger, Func<string, string, Task>? forwardDecodedMessage = null) {
             _logger = logger;
-            _handlers = new Dictionary<string, MessageHandler>(StringComparer.OrdinalIgnoreCase);
+            _handlers = new Dictionary<MessageType, MessageHandler>();
             _jsonOptions = new JsonSerializerOptions {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true
@@ -45,9 +46,9 @@ namespace UniMixerServer.Communication.MessageProcessing {
             _framer = new BinaryProtocolFramer(_logger, _statistics);
         }
 
-        public void RegisterHandler(string messageType, MessageHandler handler) {
-            if (string.IsNullOrWhiteSpace(messageType)) {
-                throw new ArgumentException("Message type cannot be null or empty", nameof(messageType));
+        public void RegisterHandler(MessageType messageType, MessageHandler handler) {
+            if (messageType == MessageType.INVALID) {
+                throw new ArgumentException("Cannot register handler for INVALID message type", nameof(messageType));
             }
 
             if (handler == null) {
@@ -55,7 +56,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
             }
 
             _handlers[messageType] = handler;
-            _logger.LogDebug("Registered handler for message type: {MessageType}", messageType);
+            _logger.LogDebug("Registered handler for message type: {MessageType} ({MessageTypeValue})", messageType, (int)messageType);
         }
 
         public async Task ProcessAsync(string rawData, string sourceInfo) {
@@ -123,16 +124,41 @@ namespace UniMixerServer.Communication.MessageProcessing {
                     return;
                 }
 
-                var messageType = messageTypeElement.GetString();
-                if (string.IsNullOrWhiteSpace(messageType)) {
-                    _logger.LogDebug("Empty messageType in JSON from {Source}", sourceInfo);
+                MessageType messageType;
+
+                // Handle both numeric and string message types for backward compatibility during transition
+                if (messageTypeElement.ValueKind == JsonValueKind.Number) {
+                    // New numeric protocol
+                    var messageTypeValue = messageTypeElement.GetInt32();
+                    if (Enum.IsDefined(typeof(MessageType), messageTypeValue)) {
+                        messageType = (MessageType)messageTypeValue;
+                    }
+                    else {
+                        _logger.LogDebug("Unknown numeric messageType {MessageTypeValue} from {Source}", messageTypeValue, sourceInfo);
+                        messageType = MessageType.INVALID;
+                    }
+                }
+                else if (messageTypeElement.ValueKind == JsonValueKind.String) {
+                    // Legacy string protocol - convert to enum
+                    var messageTypeString = messageTypeElement.GetString();
+                    messageType = MessageTypeExtensions.FromMessageString(messageTypeString ?? "");
+                    _logger.LogDebug("Converting legacy string messageType '{MessageTypeString}' to enum {MessageType} from {Source}",
+                        messageTypeString, messageType, sourceInfo);
+                }
+                else {
+                    _logger.LogDebug("Invalid messageType format in JSON from {Source}", sourceInfo);
+                    return;
+                }
+
+                if (messageType == MessageType.INVALID) {
+                    _logger.LogDebug("Invalid or unknown messageType from {Source}", sourceInfo);
                     return;
                 }
 
                 // Step 3: O(1) lookup for appropriate handler
                 if (!_handlers.TryGetValue(messageType, out var handler)) {
-                    _logger.LogDebug("No handler registered for message type '{MessageType}' from {Source}",
-                        messageType, sourceInfo);
+                    _logger.LogDebug("No handler registered for message type '{MessageType}' ({MessageTypeValue}) from {Source}",
+                        messageType, (int)messageType, sourceInfo);
                     return;
                 }
 
@@ -143,7 +169,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
                     SourceInfo = sourceInfo
                 };
 
-                _logger.LogTrace("Processing {MessageType} from {Source}", messageType, sourceInfo);
+                _logger.LogTrace("Processing {MessageType} ({MessageTypeValue}) from {Source}", messageType, (int)messageType, sourceInfo);
                 await handler(parsedMessage);
             }
             catch (JsonException ex) {
