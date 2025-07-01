@@ -11,8 +11,6 @@ using UniMixerServer.Models;
 using UniMixerServer.Communication.MessageProcessing;
 using UniMixerServer.Communication.BinaryProtocol;
 using UniMixerServer.Services;
-using Serilog;
-using Serilog.Core;
 
 namespace UniMixerServer.Communication {
     /// <summary>
@@ -30,7 +28,6 @@ namespace UniMixerServer.Communication {
         private bool _useBinaryProtocol;
         private bool _protocolDetected;
         private readonly StringBuilder _textBuffer = new StringBuilder();
-        private readonly Logger _binaryDataLogger;
 
         public override string Name => "Serial";
         public override bool IsConnected => _serialPort?.IsOpen ?? false;
@@ -39,16 +36,6 @@ namespace UniMixerServer.Communication {
             : base(logger, messageProcessor) {
             _config = config;
             _useBinaryProtocol = config.BinaryProtocol.EnableBinaryProtocol;
-
-            // Create dedicated logger for incoming binary data - raw ASCII only
-            _binaryDataLogger = new LoggerConfiguration()
-                .WriteTo.File(
-                    "logs/incoming/binary-data-.log",
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 30,
-                    fileSizeLimitBytes: 50 * 1024 * 1024, // 50MB
-                    outputTemplate: "{Message}")
-                .CreateLogger();
 
             // Initialize binary message processor if enabled
             if (_useBinaryProtocol) {
@@ -116,10 +103,6 @@ namespace UniMixerServer.Communication {
 
                 _logger.LogInformation("Serial handler started successfully on {Port}", _config.PortName);
                 NotifyConnectionStatusChanged(true, $"Connected to serial port {_config.PortName}");
-
-                // Log header for new run in binary data log
-                _binaryDataLogger.Information("=== NEW RUN STARTED: {Timestamp} - Serial Port {Port} ===\n",
-                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), _config.PortName);
 
                 return Task.CompletedTask;
             }
@@ -273,9 +256,9 @@ namespace UniMixerServer.Communication {
                             var readBytes = new byte[bytesRead];
                             Array.Copy(buffer, readBytes, bytesRead);
 
-                            // Log raw binary data as ASCII for debugging (especially useful when client crashes)
+                            // Log raw binary data as ASCII for debugging using the configurable logger
                             var asciiData = Encoding.ASCII.GetString(readBytes);
-                            _binaryDataLogger.Information(asciiData);
+                            IncomingDataLogger.LogIncomingData(asciiData, "Serial-Binary");
 
                             // Process binary data through the message processor's binary method
                             await _binaryMessageProcessor!.ProcessBinaryAsync(readBytes, "Serial");
@@ -420,7 +403,6 @@ namespace UniMixerServer.Communication {
                     _readTask?.Wait(1000);
                     _serialPort?.Dispose();
                     _cancellationTokenSource?.Dispose();
-                    _binaryDataLogger?.Dispose();
                 }
                 base.Dispose(disposing);
                 _disposed = true;

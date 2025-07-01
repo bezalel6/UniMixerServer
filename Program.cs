@@ -13,29 +13,23 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace UniMixerServer
-{
-    class Program
-    {
-        static async Task Main(string[] args)
-        {
+namespace UniMixerServer {
+    class Program {
+        static async Task Main(string[] args) {
             // Check if we should test Chrome icon conversion
-            if (args.Length > 0 && args[0].Equals("--test-chrome", StringComparison.OrdinalIgnoreCase))
-            {
+            if (args.Length > 0 && args[0].Equals("--test-chrome", StringComparison.OrdinalIgnoreCase)) {
                 await TestChromeIconConversion();
                 return;
             }
 
             // Check if we should run the audio manager test
-            if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase))
-            {
+            if (args.Length > 0 && args[0].Equals("--test-audio", StringComparison.OrdinalIgnoreCase)) {
                 await AudioManagerTester.RunTest(args);
                 return;
             }
 
             // Check if we should run the desktop app
-            if (args.Length > 0 && args[0].Equals("--desktop", StringComparison.OrdinalIgnoreCase))
-            {
+            if (args.Length > 0 && args[0].Equals("--desktop", StringComparison.OrdinalIgnoreCase)) {
                 UniMixerServer.UI.DesktopAppLauncher.Launch();
                 return;
             }
@@ -45,15 +39,13 @@ namespace UniMixerServer
 
             // Create host builder
             var hostBuilder = Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((context, config) =>
-                {
+                .ConfigureAppConfiguration((context, config) => {
                     config.SetBasePath(Directory.GetCurrentDirectory())
                           .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                           .AddEnvironmentVariables()
                           .AddCommandLine(args);
                 })
-                .ConfigureServices((context, services) =>
-                {
+                .ConfigureServices((context, services) => {
                     // Get configuration
                     var configuration = context.Configuration;
                     var appConfig = configuration.Get<AppConfig>() ?? new AppConfig();
@@ -91,8 +83,7 @@ namespace UniMixerServer
                     services.AddSingleton<IProcessIconExtractor, ProcessIconExtractor>();
 
                     // Register core services
-                    services.AddSingleton<IAudioManager>(provider =>
-                    {
+                    services.AddSingleton<IAudioManager>(provider => {
                         var logger = provider.GetRequiredService<ILogger<AudioManager>>();
                         var iconExtractor = provider.GetRequiredService<IProcessIconExtractor>();
                         return new AudioManager(logger, appConfig.Audio.EnableDetailedLogging, iconExtractor);
@@ -102,8 +93,7 @@ namespace UniMixerServer
                     services.AddSingleton<StatusUpdateProcessor>();
 
                     // Register asset service
-                    services.AddSingleton<IAssetService>(provider =>
-                    {
+                    services.AddSingleton<IAssetService>(provider => {
                         var logger = provider.GetRequiredService<ILogger<AssetService>>();
                         var iconExtractor = provider.GetRequiredService<IProcessIconExtractor>();
                         return new AssetService(logger, iconExtractor);
@@ -113,8 +103,7 @@ namespace UniMixerServer
                     services.AddSingleton<JsonMessageProcessor>();
 
                     // Register communication handlers conditionally
-                    if (appConfig.EnableMqtt)
-                    {
+                    if (appConfig.EnableMqtt) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new MqttHandler(
                                 provider.GetRequiredService<ILogger<MqttHandler>>(),
@@ -122,8 +111,7 @@ namespace UniMixerServer
                                 provider.GetRequiredService<JsonMessageProcessor>()));
                     }
 
-                    if (appConfig.EnableSerial)
-                    {
+                    if (appConfig.EnableSerial) {
                         services.AddSingleton<ICommunicationHandler>(provider =>
                             new SerialHandler(
                                 provider.GetRequiredService<ILogger<SerialHandler>>(),
@@ -134,13 +122,11 @@ namespace UniMixerServer
                     // Register main service
                     services.AddHostedService<UniMixerService>();
                 })
-                .UseSerilog((context, services, configuration) =>
-                {
+                .UseSerilog((context, services, configuration) => {
                     var appConfig = context.Configuration.Get<AppConfig>() ?? new AppConfig();
 
                     // Convert string log level to Serilog LogEventLevel
-                    var logLevel = appConfig.Logging.LogLevel.ToUpperInvariant() switch
-                    {
+                    var logLevel = appConfig.Logging.LogLevel.ToUpperInvariant() switch {
                         "DEBUG" => Serilog.Events.LogEventLevel.Debug,
                         "INFORMATION" or "INFO" => Serilog.Events.LogEventLevel.Information,
                         "WARNING" or "WARN" => Serilog.Events.LogEventLevel.Warning,
@@ -155,14 +141,12 @@ namespace UniMixerServer
                         .Enrich.WithProperty("Application", "UniMixerServer")
                         .Enrich.WithProperty("MachineName", Environment.MachineName);
 
-                    if (appConfig.Logging.EnableConsoleLogging)
-                    {
+                    if (appConfig.Logging.EnableConsoleLogging) {
                         configuration.WriteTo.Console(
                             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
                     }
 
-                    if (appConfig.Logging.EnableFileLogging)
-                    {
+                    if (appConfig.Logging.EnableFileLogging) {
                         var logPath = appConfig.Logging.LogFilePath;
                         configuration.WriteTo.File(
                             logPath,
@@ -172,8 +156,7 @@ namespace UniMixerServer
                 })
                 .UseWindowsService(); // Enable running as Windows Service
 
-            try
-            {
+            try {
                 Console.WriteLine("UniMixer Server starting...");
                 Console.WriteLine($"Device ID: {Environment.MachineName}");
                 Console.WriteLine("Communication: Serial only (MQTT disabled)");
@@ -183,6 +166,10 @@ namespace UniMixerServer
 
                 // Print final configuration after all cascading initialization
                 var finalConfig = host.Services.GetRequiredService<AppConfig>();
+
+                // Initialize configurable data loggers
+                IncomingDataLogger.Initialize(finalConfig.Logging);
+                OutgoingDataLogger.Initialize(finalConfig.Logging);
                 Console.WriteLine("\n=== FINAL CONFIGURATION ===");
                 Console.WriteLine($"Device ID: {finalConfig.DeviceId}");
                 Console.WriteLine($"Status Broadcast Interval: {finalConfig.StatusBroadcastIntervalMs}ms");
@@ -197,6 +184,12 @@ namespace UniMixerServer
                 Console.WriteLine($"Log File Path: {finalConfig.Logging.LogFilePath}");
                 Console.WriteLine($"Max Log File Size: {finalConfig.Logging.MaxLogFileSizeMB}MB");
                 Console.WriteLine($"Max Log Files: {finalConfig.Logging.MaxLogFiles}");
+                Console.WriteLine($"Enable Incoming Data Logging: {finalConfig.Logging.EnableIncomingDataLogging}");
+                Console.WriteLine($"Enable Outgoing Data Logging: {finalConfig.Logging.EnableOutgoingDataLogging}");
+                Console.WriteLine($"Incoming Data Log Path: {finalConfig.Logging.IncomingDataLogPath}");
+                Console.WriteLine($"Outgoing Data Log Path: {finalConfig.Logging.OutgoingDataLogPath}");
+                Console.WriteLine($"Max Data Log File Size: {finalConfig.Logging.MaxDataLogFileSizeMB}MB");
+                Console.WriteLine($"Max Data Log Files: {finalConfig.Logging.MaxDataLogFiles}");
 
                 Console.WriteLine("\n--- Audio Configuration ---");
                 Console.WriteLine($"Include All Devices: {finalConfig.Audio.IncludeAllDevices}");
@@ -210,8 +203,7 @@ namespace UniMixerServer
                 Console.WriteLine($"Baud Rate: {finalConfig.Serial.BaudRate}");
                 Console.WriteLine($"Enable Auto Reconnect: {finalConfig.Serial.EnableAutoReconnect}");
 
-                if (finalConfig.EnableMqtt)
-                {
+                if (finalConfig.EnableMqtt) {
                     Console.WriteLine("\n--- MQTT Configuration ---");
                     Console.WriteLine($"Broker Host: {finalConfig.Mqtt.BrokerHost}");
                     Console.WriteLine($"Broker Port: {finalConfig.Mqtt.BrokerPort}");
@@ -224,30 +216,27 @@ namespace UniMixerServer
                 Console.WriteLine("===============================\n");
 
                 // Setup cleanup for data loggers
-                AppDomain.CurrentDomain.ProcessExit += (s, e) =>
-                {
+                AppDomain.CurrentDomain.ProcessExit += (s, e) => {
                     Console.WriteLine("Cleaning up data loggers...");
-                    UniMixerServer.Services.OutgoingDataLogger.Dispose();
+                    IncomingDataLogger.Dispose();
+                    OutgoingDataLogger.Dispose();
                 };
 
                 await host.RunAsync();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Fatal error: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
             }
         }
 
-        private static async Task TestChromeIconConversion()
-        {
+        private static async Task TestChromeIconConversion() {
             Console.WriteLine("=== Chrome Icon Conversion Test ===");
             Console.WriteLine($"Starting test at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             Console.WriteLine();
 
-            try
-            {
+            try {
                 // Setup basic console logging for the test
                 var loggerFactory = LoggerFactory.Create(builder =>
                     builder.AddConsole()
@@ -273,23 +262,19 @@ namespace UniMixerServer
                 bool conversionSucceeded = false;
                 string? successfulProcessName = null;
 
-                foreach (var processName in chromeProcessNames)
-                {
+                foreach (var processName in chromeProcessNames) {
                     Console.WriteLine($"--- Testing process name: '{processName}' ---");
 
-                    try
-                    {
+                    try {
                         var result = await assetService.GetAssetAsync(processName);
 
-                        if (result.Success && result.AssetData != null && result.AssetData.Length > 0)
-                        {
+                        if (result.Success && result.AssetData != null && result.AssetData.Length > 0) {
                             Console.WriteLine($"✓ SUCCESS: Converted {processName} icon!");
                             Console.WriteLine($"  Format: LVGL Binary");
                             Console.WriteLine($"  Size: {result.AssetData.Length} bytes");
                             Console.WriteLine($"  Process: {result.ProcessName}");
 
-                            if (result.Metadata != null)
-                            {
+                            if (result.Metadata != null) {
                                 Console.WriteLine($"  Dimensions: {result.Metadata.Width}x{result.Metadata.Height}");
                                 Console.WriteLine($"  File format: {result.Metadata.Format}");
                                 Console.WriteLine($"  Checksum: {result.Metadata.Checksum}");
@@ -299,13 +284,11 @@ namespace UniMixerServer
                             successfulProcessName = processName;
                             break;
                         }
-                        else
-                        {
+                        else {
                             Console.WriteLine($"✗ FAILED: {result.ErrorMessage ?? "Unknown error"}");
                         }
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         Console.WriteLine($"✗ ERROR: {ex.Message}");
                     }
 
@@ -313,14 +296,12 @@ namespace UniMixerServer
                 }
 
                 Console.WriteLine("=== Test Summary ===");
-                if (conversionSucceeded)
-                {
+                if (conversionSucceeded) {
                     Console.WriteLine($"✓ Chrome icon conversion SUCCESSFUL using process name: '{successfulProcessName}'");
                     Console.WriteLine("Check the logs above for detailed conversion information.");
                     Console.WriteLine("Debug files have been preserved in the assets/debug/lvgl_conversion directory.");
                 }
-                else
-                {
+                else {
                     Console.WriteLine("✗ Chrome icon conversion FAILED for all attempted process names");
                     Console.WriteLine();
                     Console.WriteLine("Possible reasons:");
@@ -339,8 +320,7 @@ namespace UniMixerServer
                 Console.WriteLine();
                 Console.WriteLine($"Test completed at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"CRITICAL ERROR during test setup: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);

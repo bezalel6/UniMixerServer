@@ -124,5 +124,35 @@ namespace UniMixerServer.Configuration {
         public int MaxLogFileSizeMB { get; set; } = 10;
         public int MaxLogFiles { get; set; } = 5;
         public bool EnableConsoleLogging { get; set; } = false;
+
+        /// <summary>
+        /// Whether to enable logging of incoming communication data
+        /// </summary>
+        public bool EnableIncomingDataLogging { get; set; } = true;
+
+        /// <summary>
+        /// Whether to enable logging of outgoing communication data
+        /// </summary>
+        public bool EnableOutgoingDataLogging { get; set; } = true;
+
+        /// <summary>
+        /// Path for incoming data log files
+        /// </summary>
+        public string IncomingDataLogPath { get; set; } = "logs/incoming/incoming-data-.log";
+
+        /// <summary>
+        /// Path for outgoing data log files
+        /// </summary>
+        public string OutgoingDataLogPath { get; set; } = "logs/outgoing/outgoing-data-.log";
+
+        /// <summary>
+        /// Maximum size for incoming/outgoing data log files in MB
+        /// </summary>
+        public int MaxDataLogFileSizeMB { get; set; } = 50;
+
+        /// <summary>
+        /// Number of data log files to retain
+        /// </summary>
+        public int MaxDataLogFiles { get; set; } = 30;
     }
 }
