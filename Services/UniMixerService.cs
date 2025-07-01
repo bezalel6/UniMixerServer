@@ -13,8 +13,10 @@ using UniMixerServer.Core;
 using UniMixerServer.Models;
 using static UniMixerServer.Models.StatusBroadcastReason;
 
-namespace UniMixerServer.Services {
-    public class UniMixerService : BackgroundService {
+namespace UniMixerServer.Services
+{
+    public class UniMixerService : BackgroundService
+    {
         private readonly ILogger<UniMixerService> _logger;
         private readonly AppConfig _config;
         private readonly IAudioManager _audioManager;
@@ -31,7 +33,8 @@ namespace UniMixerServer.Services {
             IAudioManager audioManager,
             StatusUpdateProcessor statusUpdateProcessor,
             IAssetService assetService,
-            IEnumerable<ICommunicationHandler> communicationHandlers) {
+            IEnumerable<ICommunicationHandler> communicationHandlers)
+        {
             _logger = logger;
             _config = config.Value;
             _audioManager = audioManager;
@@ -39,11 +42,11 @@ namespace UniMixerServer.Services {
             _assetService = assetService;
             _communicationHandlers = communicationHandlers.ToList();
         }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
             _logger.LogInformation("UniMixer Service starting...");
-
-            try {
+            try
+            {
                 // Start communication handlers
                 await StartCommunicationHandlersAsync(stoppingToken);
 
@@ -62,22 +65,27 @@ namespace UniMixerServer.Services {
                 // Keep the service running until cancellation is requested
                 await Task.Delay(Timeout.Infinite, stoppingToken);
             }
-            catch (OperationCanceledException) {
+            catch (OperationCanceledException)
+            {
                 _logger.LogInformation("UniMixer Service stopping...");
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error in UniMixer Service");
                 throw;
             }
-            finally {
+            finally
+            {
                 await StopAsync(stoppingToken);
             }
         }
 
-        public override async Task StopAsync(CancellationToken cancellationToken) {
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
             _logger.LogInformation("UniMixer Service stopping...");
 
-            try {
+            try
+            {
                 // Stop timers
                 _statusTimer?.Dispose();
                 _audioRefreshTimer?.Dispose();
@@ -87,52 +95,65 @@ namespace UniMixerServer.Services {
 
                 _logger.LogInformation("UniMixer Service stopped successfully");
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error stopping UniMixer Service");
             }
 
             await base.StopAsync(cancellationToken);
         }
 
-        private async Task StartCommunicationHandlersAsync(CancellationToken cancellationToken) {
+        private async Task StartCommunicationHandlersAsync(CancellationToken cancellationToken)
+        {
             var startTasks = new List<Task>();
 
-            foreach (var handler in _communicationHandlers) {
-                try {
+            foreach (var handler in _communicationHandlers)
+            {
+                try
+                {
                     _logger.LogInformation("Starting communication handler: {HandlerName}", handler.Name);
                     startTasks.Add(handler.StartAsync(cancellationToken));
                 }
-                catch (Exception ex) {
+                catch (Exception ex)
+                {
                     _logger.LogError(ex, "Failed to start communication handler: {HandlerName}", handler.Name);
                 }
             }
 
-            if (startTasks.Any()) {
+            if (startTasks.Any())
+            {
                 await Task.WhenAll(startTasks);
             }
         }
 
-        private async Task StopCommunicationHandlersAsync(CancellationToken cancellationToken) {
+        private async Task StopCommunicationHandlersAsync(CancellationToken cancellationToken)
+        {
             var stopTasks = new List<Task>();
 
-            foreach (var handler in _communicationHandlers) {
-                try {
+            foreach (var handler in _communicationHandlers)
+            {
+                try
+                {
                     _logger.LogInformation("Stopping communication handler: {HandlerName}", handler.Name);
                     stopTasks.Add(handler.StopAsync(cancellationToken));
                 }
-                catch (Exception ex) {
+                catch (Exception ex)
+                {
                     _logger.LogError(ex, "Error stopping communication handler: {HandlerName}", handler.Name);
                 }
             }
 
-            if (stopTasks.Any()) {
+            if (stopTasks.Any())
+            {
                 await Task.WhenAll(stopTasks);
             }
         }
 
-        private void SetupEventHandlers() {
+        private void SetupEventHandlers()
+        {
             // Subscribe to status update events from all communication handlers
-            foreach (var handler in _communicationHandlers) {
+            foreach (var handler in _communicationHandlers)
+            {
                 handler.StatusUpdateReceived += OnStatusUpdateReceived;
                 handler.StatusRequestReceived += OnStatusRequestReceived;
                 handler.AssetRequestReceived += OnAssetRequestReceived;
@@ -143,7 +164,8 @@ namespace UniMixerServer.Services {
             _audioManager.AudioSessionChanged += OnAudioSessionChanged;
         }
 
-        private void StartTimers() {
+        private void StartTimers()
+        {
             // Status broadcast timer
             _statusTimer = new Timer(
                 OnStatusTimerElapsed,
@@ -162,38 +184,47 @@ namespace UniMixerServer.Services {
                 _config.StatusBroadcastIntervalMs, _config.AudioSessionRefreshIntervalMs);
         }
 
-        private async void OnStatusTimerElapsed(object? state) {
-            try {
+        private async void OnStatusTimerElapsed(object? state)
+        {
+            try
+            {
                 await BroadcastStatusAsync(StatusBroadcastReason.PeriodicUpdate);
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error during status broadcast");
             }
         }
 
-        private async void OnAudioRefreshTimerElapsed(object? state) {
-            try {
+        private async void OnAudioRefreshTimerElapsed(object? state)
+        {
+            try
+            {
                 var config = CreateAudioDiscoveryConfig();
                 var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
 
                 // Check if sessions have changed
-                if (HasSessionsChanged(sessions)) {
+                if (HasSessionsChanged(sessions))
+                {
                     _lastKnownSessions = sessions;
                     _logger.LogDebug("Audio sessions changed, triggering status update");
                     await BroadcastStatusAsync(StatusBroadcastReason.SessionChange);
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error during audio session refresh");
             }
         }
 
-        private bool HasSessionsChanged(List<UniMixerServer.Core.AudioSession> newSessions) {
+        private bool HasSessionsChanged(List<UniMixerServer.Core.AudioSession> newSessions)
+        {
             if (_lastKnownSessions.Count != newSessions.Count)
                 return true;
 
             // Compare each session
-            foreach (var newSession in newSessions) {
+            foreach (var newSession in newSessions)
+            {
                 var oldSession = _lastKnownSessions.FirstOrDefault(s => s.ProcessName == newSession.ProcessName);
                 if (oldSession == null)
                     return true;
@@ -207,11 +238,14 @@ namespace UniMixerServer.Services {
             return false;
         }
 
-        private async Task BroadcastStatusAsync(StatusBroadcastReason reason = StatusBroadcastReason.Unknown, string? originatingRequestId = null, string? originatingDeviceId = null) {
-            try {
+        private async Task BroadcastStatusAsync(StatusBroadcastReason reason = StatusBroadcastReason.Unknown, string? originatingRequestId = null, string? originatingDeviceId = null)
+        {
+            try
+            {
                 var config = CreateAudioDiscoveryConfig();
                 var sessions = await _audioManager.GetAllAudioSessionsAsync(config);
-                foreach (var session in sessions) {
+                foreach (var session in sessions)
+                {
                     _logger.LogDebug("Session: {Session}", session.ToString());
                 }
 
@@ -220,22 +254,26 @@ namespace UniMixerServer.Services {
                     s.ProcessId > 0 && !string.IsNullOrWhiteSpace(s.ProcessName)
                 ).ToList();
 
-                if (validSessions.Count != sessions.Count) {
+                if (validSessions.Count != sessions.Count)
+                {
                     _logger.LogWarning("Filtered out {FilteredCount} invalid sessions",
                         sessions.Count - validSessions.Count);
                 }
 
                 // Log each valid session with their volume
                 var logMessage = $"Broadcasting status for {validSessions.Count} sessions (Reason: {reason}";
-                if (!string.IsNullOrEmpty(originatingDeviceId)) {
+                if (!string.IsNullOrEmpty(originatingDeviceId))
+                {
                     logMessage += $", OriginatingDevice: {originatingDeviceId}";
                 }
-                if (!string.IsNullOrEmpty(originatingRequestId)) {
+                if (!string.IsNullOrEmpty(originatingRequestId))
+                {
                     logMessage += $", RequestId: {originatingRequestId}";
                 }
                 logMessage += "):";
                 _logger.LogInformation(logMessage);
-                foreach (var session in validSessions) {
+                foreach (var session in validSessions)
+                {
                     _logger.LogInformation("  Session: {ProcessName} (PID: {ProcessId}) - Volume: {Volume:P1}, Muted: {IsMuted}, State: {State}",
                         session.ProcessName, session.ProcessId, session.Volume, session.IsMuted, session.SessionState);
                 }
@@ -243,12 +281,14 @@ namespace UniMixerServer.Services {
                 // Get default audio device information
                 var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
-                var statusMessage = new StatusMessage {
+                var statusMessage = new StatusMessage
+                {
                     MessageType = "StatusMessage",
                     DeviceId = _config.DeviceId,
                     Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ActiveSessionCount = validSessions.Count,
-                    Sessions = validSessions.Select(s => new SessionStatus {
+                    Sessions = validSessions.Select(s => new SessionStatus
+                    {
                         ProcessId = s.ProcessId,
                         ProcessName = s.ProcessName ?? string.Empty,
                         DisplayName = s.DisplayName ?? string.Empty,
@@ -268,7 +308,8 @@ namespace UniMixerServer.Services {
 
                 await Task.WhenAll(broadcastTasks);
 
-                if (defaultDevice != null) {
+                if (defaultDevice != null)
+                {
                     // _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
                     //     "Default Audio Device Details:\n" +
                     //     "  Device ID: {DeviceId}\n" +
@@ -287,24 +328,29 @@ namespace UniMixerServer.Services {
                     //     defaultDevice.DataFlow,
                     //     defaultDevice.DeviceRole);
                 }
-                else {
+                else
+                {
                     _logger.LogInformation("Status sent to {HandlerCount} handlers, {SessionCount} sessions\n" +
                         "Default Audio Device: None (No default device found)",
                         connectedHandlers.Count, validSessions.Count);
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error broadcasting status");
             }
         }
 
-        private async Task<DefaultAudioDevice?> GetDefaultAudioDeviceInfoAsync() {
-            try {
+        private async Task<DefaultAudioDevice?> GetDefaultAudioDeviceInfoAsync()
+        {
+            try
+            {
                 var deviceInfo = await _audioManager.GetDefaultAudioDeviceAsync();
                 if (deviceInfo == null)
                     return null;
 
-                return new DefaultAudioDevice {
+                return new DefaultAudioDevice
+                {
                     FriendlyName = deviceInfo.FriendlyName,
                     Volume = deviceInfo.Volume,
                     IsMuted = deviceInfo.IsMuted,
@@ -312,14 +358,17 @@ namespace UniMixerServer.Services {
                     DeviceRole = deviceInfo.DeviceRole.ToString()
                 };
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error getting default audio device info");
                 return null;
             }
         }
 
-        private UniMixerServer.Core.AudioDiscoveryConfig CreateAudioDiscoveryConfig() {
-            return new UniMixerServer.Core.AudioDiscoveryConfig {
+        private UniMixerServer.Core.AudioDiscoveryConfig CreateAudioDiscoveryConfig()
+        {
+            return new UniMixerServer.Core.AudioDiscoveryConfig
+            {
                 IncludeAllDevices = _config.Audio.IncludeAllDevices,
                 IncludeCaptureDevices = _config.Audio.IncludeCaptureDevices,
                 DataFlow = ParseDataFlow(_config.Audio.DataFlow),
@@ -330,8 +379,10 @@ namespace UniMixerServer.Services {
             };
         }
 
-        private UniMixerServer.Core.AudioDataFlow ParseDataFlow(string dataFlow) {
-            return dataFlow?.ToLowerInvariant() switch {
+        private UniMixerServer.Core.AudioDataFlow ParseDataFlow(string dataFlow)
+        {
+            return dataFlow?.ToLowerInvariant() switch
+            {
                 "render" => UniMixerServer.Core.AudioDataFlow.Render,
                 "capture" => UniMixerServer.Core.AudioDataFlow.Capture,
                 "all" => UniMixerServer.Core.AudioDataFlow.All,
@@ -339,8 +390,10 @@ namespace UniMixerServer.Services {
             };
         }
 
-        private UniMixerServer.Core.AudioDeviceRole ParseDeviceRole(string deviceRole) {
-            return deviceRole?.ToLowerInvariant() switch {
+        private UniMixerServer.Core.AudioDeviceRole ParseDeviceRole(string deviceRole)
+        {
+            return deviceRole?.ToLowerInvariant() switch
+            {
                 "console" => UniMixerServer.Core.AudioDeviceRole.Console,
                 "multimedia" => UniMixerServer.Core.AudioDeviceRole.Multimedia,
                 "communications" => UniMixerServer.Core.AudioDeviceRole.Communications,
@@ -348,32 +401,40 @@ namespace UniMixerServer.Services {
             };
         }
 
-        private async void OnStatusUpdateReceived(object? sender, StatusUpdateReceivedEventArgs e) {
-            try {
+        private async void OnStatusUpdateReceived(object? sender, StatusUpdateReceivedEventArgs e)
+        {
+            try
+            {
                 _logger.LogInformation("Processing status update from {Source} with {SessionCount} sessions",
                     e.Source, e.StatusUpdate.Sessions.Count);
 
                 await ProcessStatusUpdateAsync(e.StatusUpdate);
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error processing status update");
             }
         }
 
-        private async void OnStatusRequestReceived(object? sender, StatusRequestReceivedEventArgs e) {
-            try {
+        private async void OnStatusRequestReceived(object? sender, StatusRequestReceivedEventArgs e)
+        {
+            try
+            {
                 _logger.LogInformation("Processing status request from {Source} - broadcasting current status",
                     e.Source);
 
                 await BroadcastStatusAsync(StatusBroadcastReason.StatusRequest, e.StatusRequest.RequestId, e.StatusRequest.DeviceId);
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error processing status request");
             }
         }
 
-        private async Task ProcessStatusUpdateAsync(StatusUpdate statusUpdate) {
-            try {
+        private async Task ProcessStatusUpdateAsync(StatusUpdate statusUpdate)
+        {
+            try
+            {
                 var timestampDate = DateTimeOffset.FromUnixTimeMilliseconds(statusUpdate.Timestamp).DateTime;
                 _logger.LogInformation("Processing status update: {SessionCount} sessions, {HasDefaultDevice}, timestamp: {Timestamp}",
                     statusUpdate.Sessions.Count, statusUpdate.DefaultDevice != null ? "with default device" : "no default device", timestampDate);
@@ -387,30 +448,37 @@ namespace UniMixerServer.Services {
                 var result = await _statusUpdateProcessor.ProcessUpdateAsync(statusUpdate, currentSessions, currentDefaultDevice);
 
                 // Broadcast updated status only if changes were made
-                if (result.HasChanges) {
+                if (result.HasChanges)
+                {
                     await BroadcastStatusAsync(StatusBroadcastReason.UpdateResponse, statusUpdate.RequestId, statusUpdate.DeviceId);
                 }
-                else {
+                else
+                {
                     _logger.LogDebug("No changes applied - skipping status broadcast");
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error processing status update");
             }
         }
 
-        private void OnConnectionStatusChanged(object? sender, ConnectionStatusChangedEventArgs e) {
+        private void OnConnectionStatusChanged(object? sender, ConnectionStatusChangedEventArgs e)
+        {
             _logger.LogInformation("Connection status changed for {HandlerName}: {IsConnected} - {Message}",
                 e.HandlerName, e.IsConnected ? "Connected" : "Disconnected", e.Message);
         }
 
-        private void OnAudioSessionChanged(object? sender, AudioSessionChangedEventArgs e) {
+        private void OnAudioSessionChanged(object? sender, AudioSessionChangedEventArgs e)
+        {
             _logger.LogDebug("Audio sessions changed: {SessionCount} sessions", e.Sessions.Count);
             _lastKnownSessions = e.Sessions;
         }
 
-        private async void OnAssetRequestReceived(object? sender, AssetRequestReceivedEventArgs e) {
-            try {
+        private async void OnAssetRequestReceived(object? sender, AssetRequestReceivedEventArgs e)
+        {
+            try
+            {
                 _logger.LogInformation("Processing asset request from {Source} - process: {ProcessName}",
                     e.Source, e.AssetRequest.ProcessName);
 
@@ -422,16 +490,19 @@ namespace UniMixerServer.Services {
                 assetResponse.DeviceId = e.AssetRequest.DeviceId;
 
                 // Send the response through the communication handler that received the request
-                if (sender is ICommunicationHandler handler) {
+                if (sender is ICommunicationHandler handler)
+                {
                     await handler.SendAssetAsync(assetResponse);
                     _logger.LogInformation("Asset response sent for process: {ProcessName}, Success: {Success}",
                         e.AssetRequest.ProcessName, assetResponse.Success);
                 }
-                else {
+                else
+                {
                     _logger.LogWarning("Invalid sender type for asset request");
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Error processing asset request");
             }
         }
