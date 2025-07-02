@@ -11,7 +11,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static StatusMessage CreateStatusMessage(string deviceId = "", StatusBroadcastReason reason = StatusBroadcastReason.Unknown) {
             return new StatusMessage {
-                MessageType = "StatusMessage",
+                MessageType = MessageType.STATUS_MESSAGE,
                 DeviceId = string.IsNullOrEmpty(deviceId) ? Environment.MachineName : deviceId,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Reason = reason.ToString()
@@ -23,7 +23,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static StatusRequest CreateStatusRequest(string requestId, string deviceId) {
             return new StatusRequest {
-                MessageType = "GetStatus",
+                MessageType = MessageType.GET_STATUS,
                 RequestId = requestId,
                 DeviceId = deviceId
             };
@@ -34,7 +34,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static AssetRequest CreateAssetRequest(string requestId, string deviceId, string processName) {
             return new AssetRequest {
-                MessageType = "GetAssets",
+                MessageType = MessageType.GET_ASSETS,
                 RequestId = requestId,
                 DeviceId = deviceId,
                 ProcessName = processName
@@ -46,7 +46,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static AssetResponse CreateAssetResponse(string requestId, string deviceId, string processName) {
             return new AssetResponse {
-                MessageType = "AssetResponse",
+                MessageType = MessageType.ASSET_RESPONSE,
                 RequestId = requestId,
                 DeviceId = deviceId,
                 ProcessName = processName
@@ -58,7 +58,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static StatusUpdate CreateStatusUpdate(string requestId, string deviceId) {
             return new StatusUpdate {
-                MessageType = "StatusUpdate",
+                MessageType = MessageType.STATUS_UPDATE,
                 RequestId = requestId,
                 DeviceId = deviceId,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
@@ -70,7 +70,7 @@ namespace UniMixerServer.Models {
         /// </summary>
         public static SessionUpdate CreateSessionUpdate(string processName, float volume, bool isMuted, string state) {
             return new SessionUpdate {
-                MessageType = "SessionUpdate",
+                MessageType = MessageType.SESSION_UPDATE,
                 ProcessName = processName,
                 Volume = volume,
                 IsMuted = isMuted,

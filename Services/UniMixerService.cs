@@ -39,10 +39,8 @@ namespace UniMixerServer.Services {
             _assetService = assetService;
             _communicationHandlers = communicationHandlers.ToList();
         }
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
             _logger.LogInformation("UniMixer Service starting...");
-
             try {
                 // Start communication handlers
                 await StartCommunicationHandlersAsync(stoppingToken);
@@ -244,8 +242,8 @@ namespace UniMixerServer.Services {
                 var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
                 var statusMessage = new StatusMessage {
-                    MessageType = "StatusMessage",
-                    DeviceId = _config.DeviceId,
+                    MessageType = MessageType.STATUS_MESSAGE,
+                    DeviceId = Environment.MachineName,
                     Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ActiveSessionCount = validSessions.Count,
                     Sessions = validSessions.Select(s => new SessionStatus {

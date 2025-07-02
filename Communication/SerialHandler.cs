@@ -32,33 +32,14 @@ namespace UniMixerServer.Communication {
         public override string Name => "Serial";
         public override bool IsConnected => _serialPort?.IsOpen ?? false;
 
-        private readonly ILoggingService _loggingService;
-
-        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, JsonMessageProcessor messageProcessor, ILoggingService loggingService)
-            : base(logger, messageProcessor) {
-            _loggingService = loggingService;
+        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, BinaryMessageProcessor binaryMessageProcessor)
+            : base(logger, binaryMessageProcessor) {
             _config = config;
             _useBinaryProtocol = config.BinaryProtocol.EnableBinaryProtocol;
-
-            // Initialize binary message processor if enabled
-            if (_useBinaryProtocol) {
-                _binaryMessageProcessor = new BinaryMessageProcessor(
-                    logger as ILogger<BinaryMessageProcessor> ??
-                    Microsoft.Extensions.Logging.LoggerFactory.Create(builder => { }).CreateLogger<BinaryMessageProcessor>(),
-                    _loggingService,
-                    // Forward decoded JSON messages to the existing message processing system
-                    async (jsonMessage, sourceInfo) => await ProcessIncomingDataAsync(jsonMessage, sourceInfo)
-                );
-
-                // No need to register separate handlers - we're forwarding to existing system
-                RegisterBinaryHandlers();
-            }
+            _binaryMessageProcessor = binaryMessageProcessor;
         }
 
-        private void RegisterBinaryHandlers() {
-            // Not needed - we're using message forwarding to the existing ProcessIncomingDataAsync method
-            // This ensures GetAssets and all other message types work correctly
-        }
+
 
         private async Task LogStatisticsAsync(CancellationToken cancellationToken) {
             while (!cancellationToken.IsCancellationRequested) {
@@ -107,6 +88,9 @@ namespace UniMixerServer.Communication {
 
                 _logger.LogInformation("Serial handler started successfully on {Port}", _config.PortName);
                 NotifyConnectionStatusChanged(true, $"Connected to serial port {_config.PortName}");
+
+                // Log session start for binary data debugging
+                BinaryDataLogger.LogSessionStart($"Serial Port {_config.PortName}");
 
                 return Task.CompletedTask;
             }
@@ -159,35 +143,19 @@ namespace UniMixerServer.Communication {
 
         public override async Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default) {
             if (!IsConnected) {
-                _logger.LogWarning("Cannot send status - Serial port not connected");
+                _logger.LogWarning("Cannot send status - serial port not connected");
                 return;
             }
 
             try {
-                // Ensure MessageType is set
-                if (string.IsNullOrEmpty(status.MessageType)) {
-                    status.MessageType = "StatusMessage";
-                }
-
                 var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
-                var logMessage = $"Sending status: {status.Sessions.Count} sessions, {json.Length} chars (Reason: {status.Reason}";
-                if (!string.IsNullOrEmpty(status.OriginatingDeviceId)) {
-                    logMessage += $", OriginatingDevice: {status.OriginatingDeviceId}";
-                }
-                if (!string.IsNullOrEmpty(status.OriginatingRequestId)) {
-                    logMessage += $", RequestId: {status.OriginatingRequestId}";
-                }
-                logMessage += ")";
+                _logger.LogDebug("Sending status: {SessionCount} sessions, {Length} chars", status.Sessions.Count, json.Length);
 
-                _logger.LogDebug(logMessage);
-
-                // Log outgoing data using centralized logging service
-                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "SerialHandler", "Serial");
-                _loggingService.LogCommunication(CommunicationType.SerialOutgoing, json, "SerialHandler");
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(json, "Serial");
 
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
@@ -199,6 +167,8 @@ namespace UniMixerServer.Communication {
                     var message = $"{json}\n";
                     await Task.Run(() => _serialPort!.Write(message), cancellationToken);
                 }
+
+                _logger.LogDebug("Status message sent via serial port");
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error sending status message via serial port");
@@ -207,16 +177,11 @@ namespace UniMixerServer.Communication {
 
         public override async Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default) {
             if (!IsConnected) {
-                _logger.LogWarning("Cannot send asset - Serial port not connected");
+                _logger.LogWarning("Cannot send asset - serial port not connected");
                 return;
             }
 
             try {
-                // Ensure MessageType is set
-                if (string.IsNullOrEmpty(assetResponse.MessageType)) {
-                    assetResponse.MessageType = "AssetResponse";
-                }
-
                 // For serial communication, we'll send asset data as base64 encoded JSON
                 // Create a serializable version with base64 encoded asset data
                 var response = new {
@@ -240,9 +205,8 @@ namespace UniMixerServer.Communication {
                     assetResponse.AssetData?.Length ?? 0,
                     json.Length);
 
-                // Log outgoing data using centralized logging service
-                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "SerialHandler", "Serial");
-                _loggingService.LogCommunication(CommunicationType.AssetResponse, json, "SerialHandler");
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(json, "Serial");
 
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
@@ -265,6 +229,7 @@ namespace UniMixerServer.Communication {
                 await ReadBinaryDataAsync(cancellationToken);
             }
             else {
+                throw new InvalidOperationException("Text protocol is not supported in this implementation");
                 await ReadTextDataAsync(cancellationToken);
             }
         }
@@ -281,6 +246,9 @@ namespace UniMixerServer.Communication {
                         if (bytesRead > 0) {
                             var readBytes = new byte[bytesRead];
                             Array.Copy(buffer, readBytes, bytesRead);
+
+                            // Log raw binary data as ASCII for debugging
+                            BinaryDataLogger.LogBinaryData(readBytes, "Serial");
 
                             // Process binary data through the message processor's binary method
                             await _binaryMessageProcessor!.ProcessBinaryAsync(readBytes, "Serial");
@@ -327,22 +295,13 @@ namespace UniMixerServer.Communication {
                         var data = _serialPort.ReadExisting();
                         _textBuffer.Append(data);
 
-                        // Process complete lines (legacy text protocol)
                         var content = _textBuffer.ToString();
-                        var lines = content.Split('\n');
 
-                        // Process all complete lines except the last one
-                        for (int i = 0; i < lines.Length - 1; i++) {
-                            var line = lines[i].Trim('\r', '\n');
-                            if (!string.IsNullOrWhiteSpace(line)) {
-                                // Use O(1) message processing
-                                await ProcessIncomingDataAsync(line, "Serial");
-                            }
-                        }
+                        // Process ESP32 custom format: ~prefix{JSON}]
+                        await ProcessEsp32CustomFormat(content);
 
-                        // Keep the last incomplete line in buffer
-                        _textBuffer.Clear();
-                        _textBuffer.Append(lines[lines.Length - 1]);
+                        // Also process standard newline-delimited JSON for compatibility
+                        await ProcessStandardTextFormat(content);
                     }
 
                     await Task.Delay(10, cancellationToken);
@@ -361,6 +320,71 @@ namespace UniMixerServer.Communication {
                         break;
                     }
                 }
+            }
+        }
+
+        private async Task ProcessEsp32CustomFormat(string content) {
+            // Process ESP32 custom format: ~prefix{JSON}]
+            int startIndex = 0;
+            while (true) {
+                // Find start marker ~
+                int startMarker = content.IndexOf('~', startIndex);
+                if (startMarker == -1) {
+                    break;
+                }
+
+                // Find end marker ]
+                int endMarker = content.IndexOf(']', startMarker);
+                if (endMarker == -1) {
+                    // Incomplete message, keep from start marker onwards
+                    _textBuffer.Clear();
+                    _textBuffer.Append(content.Substring(startMarker));
+                    break;
+                }
+
+                // Extract the complete message
+                var messageFrame = content.Substring(startMarker, endMarker - startMarker + 1);
+
+                // Extract JSON payload (skip ~ and variable prefix, remove ])
+                int jsonStart = messageFrame.IndexOf('{');
+                if (jsonStart != -1) {
+                    var jsonPayload = messageFrame.Substring(jsonStart, messageFrame.Length - jsonStart - 1); // Remove ]
+
+                    if (!string.IsNullOrWhiteSpace(jsonPayload)) {
+                        _logger.LogTrace("Processing ESP32 message: {Frame} -> JSON: {Json}", messageFrame, jsonPayload);
+                        await ProcessIncomingDataAsync(jsonPayload, "Serial");
+                    }
+                }
+
+                startIndex = endMarker + 1;
+            }
+
+            // Remove processed content
+            if (startIndex > 0) {
+                var remaining = content.Substring(startIndex);
+                _textBuffer.Clear();
+                _textBuffer.Append(remaining);
+            }
+        }
+
+        private async Task ProcessStandardTextFormat(string content) {
+            // Process standard newline-delimited JSON for compatibility
+            var lines = content.Split('\n');
+
+            // Process all complete lines except the last one
+            for (int i = 0; i < lines.Length - 1; i++) {
+                var line = lines[i].Trim('\r', '\n');
+                if (!string.IsNullOrWhiteSpace(line) && !line.Contains('~') && !line.Contains(']')) {
+                    // Only process if it doesn't look like ESP32 format
+                    await ProcessIncomingDataAsync(line, "Serial");
+                }
+            }
+
+            // Keep the last incomplete line in buffer only if it's not ESP32 format
+            var lastLine = lines[lines.Length - 1];
+            if (!lastLine.Contains('~')) {
+                _textBuffer.Clear();
+                _textBuffer.Append(lastLine);
             }
         }
 
