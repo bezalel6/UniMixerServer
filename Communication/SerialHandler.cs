@@ -242,6 +242,7 @@ namespace UniMixerServer.Communication {
                 await ReadBinaryDataAsync(cancellationToken);
             }
             else {
+                throw new InvalidOperationException("Text protocol is not supported in this implementation");
                 await ReadTextDataAsync(cancellationToken);
             }
         }
@@ -307,22 +308,13 @@ namespace UniMixerServer.Communication {
                         var data = _serialPort.ReadExisting();
                         _textBuffer.Append(data);
 
-                        // Process complete lines (legacy text protocol)
                         var content = _textBuffer.ToString();
-                        var lines = content.Split('\n');
 
-                        // Process all complete lines except the last one
-                        for (int i = 0; i < lines.Length - 1; i++) {
-                            var line = lines[i].Trim('\r', '\n');
-                            if (!string.IsNullOrWhiteSpace(line)) {
-                                // Use O(1) message processing
-                                await ProcessIncomingDataAsync(line, "Serial");
-                            }
-                        }
+                        // Process ESP32 custom format: ~prefix{JSON}]
+                        await ProcessEsp32CustomFormat(content);
 
-                        // Keep the last incomplete line in buffer
-                        _textBuffer.Clear();
-                        _textBuffer.Append(lines[lines.Length - 1]);
+                        // Also process standard newline-delimited JSON for compatibility
+                        await ProcessStandardTextFormat(content);
                     }
 
                     await Task.Delay(10, cancellationToken);
@@ -341,6 +333,71 @@ namespace UniMixerServer.Communication {
                         break;
                     }
                 }
+            }
+        }
+
+        private async Task ProcessEsp32CustomFormat(string content) {
+            // Process ESP32 custom format: ~prefix{JSON}]
+            int startIndex = 0;
+            while (true) {
+                // Find start marker ~
+                int startMarker = content.IndexOf('~', startIndex);
+                if (startMarker == -1) {
+                    break;
+                }
+
+                // Find end marker ]
+                int endMarker = content.IndexOf(']', startMarker);
+                if (endMarker == -1) {
+                    // Incomplete message, keep from start marker onwards
+                    _textBuffer.Clear();
+                    _textBuffer.Append(content.Substring(startMarker));
+                    break;
+                }
+
+                // Extract the complete message
+                var messageFrame = content.Substring(startMarker, endMarker - startMarker + 1);
+
+                // Extract JSON payload (skip ~ and variable prefix, remove ])
+                int jsonStart = messageFrame.IndexOf('{');
+                if (jsonStart != -1) {
+                    var jsonPayload = messageFrame.Substring(jsonStart, messageFrame.Length - jsonStart - 1); // Remove ]
+
+                    if (!string.IsNullOrWhiteSpace(jsonPayload)) {
+                        _logger.LogTrace("Processing ESP32 message: {Frame} -> JSON: {Json}", messageFrame, jsonPayload);
+                        await ProcessIncomingDataAsync(jsonPayload, "Serial");
+                    }
+                }
+
+                startIndex = endMarker + 1;
+            }
+
+            // Remove processed content
+            if (startIndex > 0) {
+                var remaining = content.Substring(startIndex);
+                _textBuffer.Clear();
+                _textBuffer.Append(remaining);
+            }
+        }
+
+        private async Task ProcessStandardTextFormat(string content) {
+            // Process standard newline-delimited JSON for compatibility
+            var lines = content.Split('\n');
+
+            // Process all complete lines except the last one
+            for (int i = 0; i < lines.Length - 1; i++) {
+                var line = lines[i].Trim('\r', '\n');
+                if (!string.IsNullOrWhiteSpace(line) && !line.Contains('~') && !line.Contains(']')) {
+                    // Only process if it doesn't look like ESP32 format
+                    await ProcessIncomingDataAsync(line, "Serial");
+                }
+            }
+
+            // Keep the last incomplete line in buffer only if it's not ESP32 format
+            var lastLine = lines[lines.Length - 1];
+            if (!lastLine.Contains('~')) {
+                _textBuffer.Clear();
+                _textBuffer.Append(lastLine);
             }
         }
 

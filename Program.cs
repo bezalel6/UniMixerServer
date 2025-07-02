@@ -34,6 +34,12 @@ namespace UniMixerServer {
                 return;
             }
 
+            // Check if we should debug binary protocol
+            if (args.Length > 0 && args[0].Equals("--debug-binary", StringComparison.OrdinalIgnoreCase)) {
+                TestBinaryProtocol();
+                return;
+            }
+
             // Load .env file for credentials
             EnvLoader.Load();
 
@@ -147,10 +153,27 @@ namespace UniMixerServer {
                     }
 
                     if (appConfig.Logging.EnableFileLogging) {
-                        var logPath = appConfig.Logging.LogFilePath;
+                        // Ensure directory exists
+                        var logDir = Path.GetDirectoryName(appConfig.Logging.LogFilePath);
+                        if (!string.IsNullOrEmpty(logDir)) {
+                            Directory.CreateDirectory(logDir);
+                        }
+
+                        // Archival logs with timestamps  
                         configuration.WriteTo.File(
-                            logPath,
+                            appConfig.Logging.LogFilePath,
+                            rollingInterval: RollingInterval.Day,
+                            retainedFileCountLimit: appConfig.Logging.MaxLogFiles,
                             fileSizeLimitBytes: appConfig.Logging.MaxLogFileSizeMB * 1024 * 1024,
+                            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+
+                        // Latest log for easy access
+                        configuration.WriteTo.File(
+                            Path.Combine(logDir ?? "logs/unimixer", "latest.log"),
+                            rollingInterval: RollingInterval.Infinite,
+                            fileSizeLimitBytes: appConfig.Logging.MaxLogFileSizeMB * 1024 * 1024,
+                            rollOnFileSizeLimit: true,
+                            retainedFileCountLimit: 1,
                             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
                     }
                 })
@@ -325,6 +348,67 @@ namespace UniMixerServer {
             }
             catch (Exception ex) {
                 Console.WriteLine($"CRITICAL ERROR during test setup: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Environment.Exit(1);
+            }
+        }
+
+        private static void TestBinaryProtocol() {
+            Console.WriteLine("=== Binary Protocol Debug Tool ===");
+            Console.WriteLine($"Starting test at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine();
+
+            try {
+                // Test 1: Create and analyze a test frame
+                Console.WriteLine("Test 1: Creating and analyzing test frames");
+                Console.WriteLine("=========================================");
+
+                var testMessage = "{\"messageType\":2,\"requestId\":\"esp32_3154\",\"deviceId\":\"ESP32S3-CONTROL-CENTER\",\"timestamp\":3154}";
+                UniMixerServer.Tools.BinaryProtocolDebugger.CreateTestFrame(testMessage);
+
+                // Test 2: Test CRC variations on the payload
+                Console.WriteLine("\nTest 2: Testing CRC variations");
+                Console.WriteLine("===============================");
+                var payloadBytes = System.Text.Encoding.UTF8.GetBytes(testMessage);
+                UniMixerServer.Tools.BinaryProtocolDebugger.TestCrcVariations(payloadBytes);
+
+                // Test 3: Analyze malformed frames from your logs
+                Console.WriteLine("\nTest 3: Analyzing sample corrupted frames");
+                Console.WriteLine("==========================================");
+
+                // Simulate the corrupted data you showed in logs
+                var corruptedFrame1 = "~_ea{\"messageType\":2,\"requestId\":\"esp32_3154\",\"deviceId\":\"ESP32S3-CONTROL-CENTER\",\"timestamp\":3154}]";
+                var corruptedBytes1 = System.Text.Encoding.ASCII.GetBytes(corruptedFrame1);
+                Console.WriteLine("Analyzing corrupted frame 1:");
+                UniMixerServer.Tools.BinaryProtocolDebugger.AnalyzeFrame(corruptedBytes1);
+
+                var corruptedFrame2 = "~at8{\"messageType\":2,\"requestId\":\"esp32_34451\",\"deviceId\":\"ESP32S3-CONTROL-CENTER\",\"timestamp\":34451}]";
+                var corruptedBytes2 = System.Text.Encoding.ASCII.GetBytes(corruptedFrame2);
+                Console.WriteLine("Analyzing corrupted frame 2:");
+                UniMixerServer.Tools.BinaryProtocolDebugger.AnalyzeFrame(corruptedBytes2);
+
+                Console.WriteLine("=== Debug Tool Completed ===");
+                Console.WriteLine();
+                Console.WriteLine("ANALYSIS SUMMARY:");
+                Console.WriteLine("The frames from your logs appear to be corrupted/malformed.");
+                Console.WriteLine("Expected binary frame structure is being received as ASCII text.");
+                Console.WriteLine();
+                Console.WriteLine("POSSIBLE CAUSES:");
+                Console.WriteLine("1. ESP32 is not sending proper binary frames");
+                Console.WriteLine("2. ESP32 is using different CRC algorithm");
+                Console.WriteLine("3. ESP32 is calculating CRC on escaped data instead of original");
+                Console.WriteLine("4. Endianness mismatch between ESP32 and server");
+                Console.WriteLine("5. Serial port configuration mismatch");
+                Console.WriteLine();
+                Console.WriteLine("NEXT STEPS:");
+                Console.WriteLine("1. Check ESP32 binary protocol implementation");
+                Console.WriteLine("2. Verify CRC16 algorithm on ESP32 matches server (polynomial 0xA001, init 0xFFFF)");
+                Console.WriteLine("3. Ensure ESP32 calculates CRC on unescaped payload");
+                Console.WriteLine("4. Check that ESP32 sends length/CRC in little-endian format");
+                Console.WriteLine("5. Enable detailed binary logging to capture raw bytes");
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"ERROR during binary protocol test: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
             }

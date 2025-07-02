@@ -82,6 +82,11 @@ namespace UniMixerServer.Communication.MessageProcessing {
 
                 // Process each decoded JSON message through the regular JSON processing pipeline
                 foreach (var jsonMessage in decodedMessages) {
+                    _logger.LogWarning("🔓 BINARY DECODE SUCCESS: {Length} byte frame decoded to JSON from {Source}",
+                        jsonMessage.Length, sourceInfo);
+                    Console.WriteLine("🔓 BINARY DECODE SUCCESS: {Length} byte frame decoded to JSON from {Source}",
+                    jsonMessage.Length, sourceInfo);
+
                     // Log decoded message using the configurable logger
                     IncomingDataLogger.LogIncomingData(jsonMessage, sourceInfo);
 

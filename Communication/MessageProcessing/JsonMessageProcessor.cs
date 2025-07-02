@@ -91,9 +91,13 @@ namespace UniMixerServer.Communication.MessageProcessing {
                     Data = root,
                     SourceInfo = sourceInfo
                 };
+                Console.WriteLine("🔄 SERVER GOT: {MessageType} from {Source}", messageType, sourceInfo);
+                // Console status message for visibility
+                _logger.LogWarning("🔄 SERVER GOT: {MessageType} from {Source}", messageType, sourceInfo);
 
-                _logger.LogTrace("Processing {MessageType} ({MessageTypeValue}) from {Source}", messageType, (int)messageType, sourceInfo);
+                _logger.LogInformation("📥 PARSING SUCCESS: {MessageType} ({MessageTypeValue}) from {Source}", messageType, (int)messageType, sourceInfo);
                 await handler(parsedMessage);
+                _logger.LogInformation("✅ HANDLING SUCCESS: {MessageType} message processed successfully from {Source}", messageType, sourceInfo);
             }
             catch (JsonException ex) {
                 _logger.LogDebug("Failed to parse JSON from {Source}: {Error}", sourceInfo, ex.Message);

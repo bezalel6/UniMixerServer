@@ -62,8 +62,8 @@ namespace UniMixerServer.Communication {
                 });
 
                 if (statusUpdate != null) {
-                    _logger.LogInformation("StatusUpdate from {Source}: {SessionCount} sessions (Device: {DeviceId})",
-                        message.SourceInfo, statusUpdate.Sessions.Count, statusUpdate.DeviceId);
+                    _logger.LogWarning("🔄 STATUS UPDATE HANDLED: {SessionCount} sessions from {DeviceId} via {Source}",
+                        statusUpdate.Sessions.Count, statusUpdate.DeviceId, message.SourceInfo);
 
                     StatusUpdateReceived?.Invoke(this, new StatusUpdateReceivedEventArgs {
                         StatusUpdate = statusUpdate,
@@ -88,18 +88,22 @@ namespace UniMixerServer.Communication {
                 });
 
                 if (statusRequest != null) {
-                    _logger.LogInformation("StatusRequest from {Source} (Device: {DeviceId}, RequestId: {RequestId})",
-                        message.SourceInfo, statusRequest.DeviceId, statusRequest.RequestId);
+                    _logger.LogWarning("📤 SERVER SENDING: STATUS_MESSAGE -> {Source} (responding to {RequestId})",
+                        message.SourceInfo, statusRequest.RequestId);
 
+                    // Trigger status request event
                     StatusRequestReceived?.Invoke(this, new StatusRequestReceivedEventArgs {
                         StatusRequest = statusRequest,
                         Source = message.SourceInfo,
                         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     });
                 }
+                else {
+                    _logger.LogWarning("⚠️ Failed to deserialize status request from {Source}", message.SourceInfo);
+                }
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Error processing StatusRequest from {Source}", message.SourceInfo);
+                _logger.LogError(ex, "❌ Error handling status request from {Source}", message.SourceInfo);
             }
 
             await Task.CompletedTask;
@@ -114,18 +118,22 @@ namespace UniMixerServer.Communication {
                 });
 
                 if (assetRequest != null) {
-                    _logger.LogInformation("AssetRequest from {Source} (Device: {DeviceId}, RequestId: {RequestId})",
-                        message.SourceInfo, assetRequest.DeviceId, assetRequest.RequestId);
+                    _logger.LogWarning("📤 SERVER SENDING: ASSET_RESPONSE -> {Source} (for {ProcessName})",
+                        message.SourceInfo, assetRequest.ProcessName);
 
+                    // Trigger asset request event
                     AssetRequestReceived?.Invoke(this, new AssetRequestReceivedEventArgs {
                         AssetRequest = assetRequest,
                         Source = message.SourceInfo,
                         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     });
                 }
+                else {
+                    _logger.LogWarning("⚠️ Failed to deserialize asset request from {Source}", message.SourceInfo);
+                }
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Error processing AssetRequest from {Source}", message.SourceInfo);
+                _logger.LogError(ex, "❌ Error handling asset request from {Source}", message.SourceInfo);
             }
 
             await Task.CompletedTask;
