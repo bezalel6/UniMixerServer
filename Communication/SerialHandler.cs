@@ -32,8 +32,11 @@ namespace UniMixerServer.Communication {
         public override string Name => "Serial";
         public override bool IsConnected => _serialPort?.IsOpen ?? false;
 
-        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, JsonMessageProcessor messageProcessor)
+        private readonly ILoggingService _loggingService;
+
+        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, JsonMessageProcessor messageProcessor, ILoggingService loggingService)
             : base(logger, messageProcessor) {
+            _loggingService = loggingService;
             _config = config;
             _useBinaryProtocol = config.BinaryProtocol.EnableBinaryProtocol;
 
@@ -42,6 +45,7 @@ namespace UniMixerServer.Communication {
                 _binaryMessageProcessor = new BinaryMessageProcessor(
                     logger as ILogger<BinaryMessageProcessor> ??
                     Microsoft.Extensions.Logging.LoggerFactory.Create(builder => { }).CreateLogger<BinaryMessageProcessor>(),
+                    _loggingService,
                     // Forward decoded JSON messages to the existing message processing system
                     async (jsonMessage, sourceInfo) => await ProcessIncomingDataAsync(jsonMessage, sourceInfo)
                 );
@@ -181,8 +185,9 @@ namespace UniMixerServer.Communication {
 
                 _logger.LogDebug(logMessage);
 
-                // Log outgoing data
-                OutgoingDataLogger.LogOutgoingData(json, "Serial");
+                // Log outgoing data using centralized logging service
+                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "SerialHandler", "Serial");
+                _loggingService.LogCommunication(CommunicationType.SerialOutgoing, json, "SerialHandler");
 
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
@@ -235,8 +240,9 @@ namespace UniMixerServer.Communication {
                     assetResponse.AssetData?.Length ?? 0,
                     json.Length);
 
-                // Log outgoing data
-                OutgoingDataLogger.LogOutgoingData(json, "Serial");
+                // Log outgoing data using centralized logging service
+                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "SerialHandler", "Serial");
+                _loggingService.LogCommunication(CommunicationType.AssetResponse, json, "SerialHandler");
 
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame

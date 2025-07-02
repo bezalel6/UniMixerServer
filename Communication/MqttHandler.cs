@@ -23,8 +23,11 @@ namespace UniMixerServer.Communication {
         public override string Name => "MQTT";
         public override bool IsConnected => _mqttClient?.IsConnected ?? false;
 
-        public MqttHandler(ILogger<MqttHandler> logger, MqttConfig config, JsonMessageProcessor messageProcessor)
+        private readonly ILoggingService _loggingService;
+
+        public MqttHandler(ILogger<MqttHandler> logger, MqttConfig config, JsonMessageProcessor messageProcessor, ILoggingService loggingService)
             : base(logger, messageProcessor) {
+            _loggingService = loggingService;
             _config = config;
         }
 
@@ -109,8 +112,9 @@ namespace UniMixerServer.Communication {
                     .WithRetainFlag(false)
                     .Build();
 
-                // Log outgoing data
-                OutgoingDataLogger.LogOutgoingData(json, $"MQTT:{_config.Topics.StatusTopic}");
+                // Log outgoing data using centralized logging service
+                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "MqttHandler", $"MQTT:{_config.Topics.StatusTopic}");
+                _loggingService.LogCommunication(CommunicationType.MqttOutgoing, json, "MqttHandler");
 
                 await _mqttClient.EnqueueAsync(message);
                 _logger.LogDebug("Status message sent to MQTT topic: {Topic}", _config.Topics.StatusTopic);
@@ -157,8 +161,9 @@ namespace UniMixerServer.Communication {
                     .WithRetainFlag(false)
                     .Build();
 
-                // Log outgoing data
-                OutgoingDataLogger.LogOutgoingData(json, $"MQTT:{assetsTopic}");
+                // Log outgoing data using centralized logging service
+                _loggingService.LogDataFlow(DataFlowDirection.Outgoing, json, "MqttHandler", $"MQTT:{assetsTopic}");
+                _loggingService.LogCommunication(CommunicationType.AssetResponse, json, "MqttHandler");
 
                 await _mqttClient.EnqueueAsync(message);
                 _logger.LogDebug("Asset response sent to MQTT topic: {Topic} for process: {ProcessName}",

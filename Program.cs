@@ -93,6 +93,12 @@ namespace UniMixerServer {
                         return new AssetService(logger, iconExtractor);
                     });
 
+                    // Register centralized logging service
+                    services.AddSingleton<ILoggingService>(provider => {
+                        var logger = provider.GetRequiredService<ILogger<LoggingService>>();
+                        return new LoggingService(logger, appConfig.Logging);
+                    });
+
                     // Register message processor for O(1) lookup
                     services.AddSingleton<JsonMessageProcessor>();
 
@@ -102,7 +108,8 @@ namespace UniMixerServer {
                             new MqttHandler(
                                 provider.GetRequiredService<ILogger<MqttHandler>>(),
                                 appConfig.Mqtt,
-                                provider.GetRequiredService<JsonMessageProcessor>()));
+                                provider.GetRequiredService<JsonMessageProcessor>(),
+                                provider.GetRequiredService<ILoggingService>()));
                     }
 
                     if (appConfig.EnableSerial) {
@@ -110,7 +117,8 @@ namespace UniMixerServer {
                             new SerialHandler(
                                 provider.GetRequiredService<ILogger<SerialHandler>>(),
                                 appConfig.Serial,
-                                provider.GetRequiredService<JsonMessageProcessor>()));
+                                provider.GetRequiredService<JsonMessageProcessor>(),
+                                provider.GetRequiredService<ILoggingService>()));
                     }
 
                     // Register main service
@@ -136,8 +144,8 @@ namespace UniMixerServer {
                         .Enrich.WithProperty("MachineName", Environment.MachineName);
 
                     if (appConfig.Logging.EnableConsoleLogging) {
-                        configuration.WriteTo.Console(
-                            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+                        var consoleTemplate = appConfig.Logging.Console.OutputTemplate;
+                        configuration.WriteTo.Console(outputTemplate: consoleTemplate);
                     }
 
                     if (appConfig.Logging.EnableFileLogging) {
@@ -201,11 +209,7 @@ namespace UniMixerServer {
 
                 Console.WriteLine("===============================\n");
 
-                // Setup cleanup for data loggers
-                AppDomain.CurrentDomain.ProcessExit += (s, e) => {
-                    Console.WriteLine("Cleaning up data loggers...");
-                    UniMixerServer.Services.OutgoingDataLogger.Dispose();
-                };
+                // Setup cleanup handled by DI container and IDisposable services
 
                 await host.RunAsync();
             }

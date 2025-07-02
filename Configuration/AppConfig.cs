@@ -117,12 +117,59 @@ namespace UniMixerServer.Configuration {
         public int StatisticsLogIntervalMs { get; set; } = 60000; // Log stats every minute
     }
 
+    // Enhanced logging configuration with centralized, granular controls
     public class LoggingConfig {
+        // Base configuration
         public string LogLevel { get; set; } = "Information";
         public bool EnableFileLogging { get; set; } = true;
         public string LogFilePath { get; set; } = "logs/unimixer-.log";
         public int MaxLogFileSizeMB { get; set; } = 10;
         public int MaxLogFiles { get; set; } = 5;
-        public bool EnableConsoleLogging { get; set; } = false;
+        public bool EnableConsoleLogging { get; set; } = true;
+        
+        // Enhanced console configuration
+        public ConsoleLoggingConfig Console { get; set; } = new ConsoleLoggingConfig();
+        
+        // Granular category controls
+        public CategoryLoggingConfig Categories { get; set; } = new CategoryLoggingConfig();
+        
+        // Communication-specific logging
+        public CommunicationLoggingConfig Communication { get; set; } = new CommunicationLoggingConfig();
+        
+        // Debug and development modes
+        public DebugLoggingConfig Debug { get; set; } = new DebugLoggingConfig();
+    }
+
+    public class ConsoleLoggingConfig {
+        public bool EnableRealTimeData { get; set; } = true;
+        public bool EnableStructuredOutput { get; set; } = false;
+        public bool EnableColorCoding { get; set; } = true;
+        public string OutputTemplate { get; set; } = "{Timestamp:HH:mm:ss.fff} [{Level:u3}] [{Category}] {Message:lj}{NewLine}{Exception}";
+    }
+
+    public class CategoryLoggingConfig {
+        public string AudioManager { get; set; } = "Information";
+        public string Communication { get; set; } = "Information";
+        public string IncomingData { get; set; } = "Debug";
+        public string OutgoingData { get; set; } = "Debug";
+        public string Protocol { get; set; } = "Information";
+        public string StatusUpdates { get; set; } = "Information";
+        public string Performance { get; set; } = "Information";
+    }
+
+    public class CommunicationLoggingConfig {
+        public bool EnableDataFlowLogging { get; set; } = true;
+        public bool EnableProtocolLogging { get; set; } = false;
+        public bool ShowRawData { get; set; } = false;
+        public bool ShowFormattedData { get; set; } = true;
+        public int MaxDataLength { get; set; } = 500; // Truncate long messages
+        public List<string> SensitiveDataFields { get; set; } = new List<string> { "password", "token", "secret" };
+    }
+
+    public class DebugLoggingConfig {
+        public bool EnableVerboseMode { get; set; } = false;
+        public bool EnablePerformanceLogging { get; set; } = false;
+        public bool EnableStatisticsLogging { get; set; } = true;
+        public int StatisticsIntervalMs { get; set; } = 30000;
     }
 }

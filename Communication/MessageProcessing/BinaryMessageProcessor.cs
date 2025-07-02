@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Serilog;
-using Serilog.Core;
 using UniMixerServer.Communication.BinaryProtocol;
+using UniMixerServer.Services;
 
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
@@ -14,31 +13,22 @@ namespace UniMixerServer.Communication.MessageProcessing {
     /// </summary>
     public class BinaryMessageProcessor : IMessageProcessor {
         private readonly ILogger<BinaryMessageProcessor> _logger;
+        private readonly ILoggingService _loggingService;
         private readonly Dictionary<string, MessageHandler> _handlers;
         private readonly JsonSerializerOptions _jsonOptions;
-        private readonly Logger _incomingDataLogger;
         private readonly BinaryProtocolFramer _framer;
         private readonly ProtocolStatistics _statistics;
         private readonly Func<string, string, Task>? _forwardDecodedMessage;
 
-        public BinaryMessageProcessor(ILogger<BinaryMessageProcessor> logger, Func<string, string, Task>? forwardDecodedMessage = null) {
+        public BinaryMessageProcessor(ILogger<BinaryMessageProcessor> logger, ILoggingService loggingService, Func<string, string, Task>? forwardDecodedMessage = null) {
             _logger = logger;
+            _loggingService = loggingService;
             _handlers = new Dictionary<string, MessageHandler>(StringComparer.OrdinalIgnoreCase);
             _jsonOptions = new JsonSerializerOptions {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true
             };
             _forwardDecodedMessage = forwardDecodedMessage;
-
-            // Create dedicated logger for incoming data (same format as text protocol)
-            _incomingDataLogger = new LoggerConfiguration()
-                .WriteTo.File(
-                    "logs/incoming/incoming-data-.log",
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 30,
-                    fileSizeLimitBytes: 50 * 1024 * 1024, // 50MB
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Source}] {RawData}{NewLine}")
-                .CreateLogger();
 
             // Initialize binary protocol components
             _statistics = new ProtocolStatistics();
@@ -93,8 +83,9 @@ namespace UniMixerServer.Communication.MessageProcessing {
 
                 // Process each decoded JSON message through the regular JSON processing pipeline
                 foreach (var jsonMessage in decodedMessages) {
-                    // Log decoded message in same format as text protocol
-                    _incomingDataLogger.Information("Incoming data from {Source}: {RawData}", sourceInfo, jsonMessage);
+                    // Log decoded message using centralized logging service
+                    _loggingService.LogDataFlow(DataFlowDirection.Incoming, jsonMessage, sourceInfo);
+                    _loggingService.LogCommunication(CommunicationType.BinaryProtocol, jsonMessage, sourceInfo, LogLevel.Debug);
 
                     // Forward to existing message processor if available, otherwise process locally
                     if (_forwardDecodedMessage != null) {
@@ -181,7 +172,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
         public ReceiveState CurrentState => _framer.CurrentState;
 
         public void Dispose() {
-            _incomingDataLogger?.Dispose();
+            // No resources to dispose - centralized logging service handles cleanup
         }
     }
 }
