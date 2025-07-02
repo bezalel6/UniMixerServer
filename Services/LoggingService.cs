@@ -21,7 +21,7 @@ namespace UniMixerServer.Services {
             _baseLogger = baseLogger;
             _config = config;
             _statistics = new LoggingStatistics();
-            
+
             // Initialize category log levels
             _categoryLevels = new Dictionary<string, LogLevel>(StringComparer.OrdinalIgnoreCase) {
                 ["AudioManager"] = ParseLogLevel(_config.Categories.AudioManager),
@@ -32,10 +32,10 @@ namespace UniMixerServer.Services {
                 ["StatusUpdates"] = ParseLogLevel(_config.Categories.StatusUpdates),
                 ["Performance"] = ParseLogLevel(_config.Categories.Performance)
             };
-            
+
             // Start statistics timer if enabled
             if (_config.Debug.EnableStatisticsLogging && _config.Debug.StatisticsIntervalMs > 0) {
-                _statisticsTimer = new Timer(LogStatistics, null, 
+                _statisticsTimer = new Timer(LogStatistics, null,
                     TimeSpan.FromMilliseconds(_config.Debug.StatisticsIntervalMs),
                     TimeSpan.FromMilliseconds(_config.Debug.StatisticsIntervalMs));
             }
@@ -49,12 +49,12 @@ namespace UniMixerServer.Services {
 
             var category = direction == DataFlowDirection.Incoming ? "IncomingData" : "OutgoingData";
             var effectiveLevel = GetEffectiveLogLevel(category);
-            
+
             if (!ShouldLog(effectiveLevel, category)) return;
 
             var sanitizedData = SanitizeData(data);
             var displayData = _config.Communication.ShowRawData ? sanitizedData : FormatData(sanitizedData);
-            
+
             if (displayData.Length > _config.Communication.MaxDataLength) {
                 displayData = displayData.Substring(0, _config.Communication.MaxDataLength) + "... (truncated)";
             }
@@ -67,85 +67,85 @@ namespace UniMixerServer.Services {
                 ["Category"] = category
             });
 
-            var message = destination != null 
+            var message = destination != null
                 ? "[{Direction}] {Source} → {Destination}: {Data}"
                 : "[{Direction}] {Source}: {Data}";
-                
+
             LogInternal(effectiveLevel, message, category, direction, source, destination ?? "", displayData);
-            
+
             _statistics.IncrementDataFlow(direction, data.Length);
         }
 
         public void LogCommunication(CommunicationType type, string data, string source, LogLevel level = LogLevel.Information) {
             var direction = type.ToString().Contains("Incoming") ? DataFlowDirection.Incoming : DataFlowDirection.Outgoing;
             var destination = ExtractDestinationFromType(type);
-            
+
             // Log data flow with detailed information
             LogDataFlow(direction, data, source, destination);
-            
+
             // Log communication event with type-specific information
             using var scope = BeginScope(new Dictionary<string, object> {
                 ["CommunicationType"] = type.ToString(),
                 ["Source"] = source,
                 ["Category"] = "Communication"
             });
-            
+
             var messageType = ExtractMessageType(data);
-            LogInternal(level, "[{CommunicationType}] {Source}: {MessageType} message processed", 
+            LogInternal(level, "[{CommunicationType}] {Source}: {MessageType} message processed",
                 "Communication", type, source, messageType);
         }
 
         public void LogProtocol(string message, string protocol, LogLevel level = LogLevel.Debug) {
             if (!_config.Communication.EnableProtocolLogging) return;
-            
+
             using var scope = BeginScope(new Dictionary<string, object> {
                 ["Protocol"] = protocol,
                 ["Category"] = "Protocol"
             });
-            
+
             LogInternal(level, "[{Protocol}] {Message}", "Protocol", protocol, message);
         }
 
         public void LogPerformance(string operation, TimeSpan duration, Dictionary<string, object> metadata = null) {
             if (!_config.Debug.EnablePerformanceLogging) return;
-            
+
             using var scope = BeginScope(new Dictionary<string, object> {
                 ["Operation"] = operation,
                 ["Duration"] = duration.TotalMilliseconds,
                 ["Category"] = "Performance"
             });
-            
-            var metadataStr = metadata != null ? 
+
+            var metadataStr = metadata != null ?
                 string.Join(", ", metadata.Select(kvp => $"{kvp.Key}={kvp.Value}")) : "";
-            
-            LogInternal(LogLevel.Information, 
-                "Performance: {Operation} completed in {Duration:F2}ms{Metadata}", 
-                "Performance", operation, duration.TotalMilliseconds, 
+
+            LogInternal(LogLevel.Information,
+                "Performance: {Operation} completed in {Duration:F2}ms{Metadata}",
+                "Performance", operation, duration.TotalMilliseconds,
                 metadataStr.Length > 0 ? $" ({metadataStr})" : "");
         }
 
         public void LogStructured<T>(LogLevel level, string messageTemplate, T data, string category = null) {
             category ??= "General";
-            
+
             if (!ShouldLog(level, category)) return;
-            
+
             using var scope = BeginScope(new Dictionary<string, object> {
                 ["Category"] = category,
                 ["Data"] = data
             });
-            
+
             LogInternal(level, messageTemplate, category, data);
         }
 
         public void Log(LogLevel level, string message, string category = null, params object[] args) {
             category ??= "General";
-            
+
             if (!ShouldLog(level, category)) return;
-            
+
             using var scope = BeginScope(new Dictionary<string, object> {
                 ["Category"] = category
             });
-            
+
             LogInternal(level, message, category, args);
         }
 
@@ -153,7 +153,7 @@ namespace UniMixerServer.Services {
             lock (_lockObject) {
                 _categoryLevels[category] = level;
             }
-            
+
             Log(LogLevel.Information, "Log level updated: {Category} → {Level}", "System", category, level);
         }
 
@@ -186,31 +186,31 @@ namespace UniMixerServer.Services {
 
         private void LogInternal(LogLevel level, string message, string category, params object[] args) {
             if (!ShouldLog(level, category)) return;
-            
+
             _baseLogger.Log(level, message, args);
             _statistics.IncrementCategory(category);
         }
 
         private string SanitizeData(string data) {
             if (string.IsNullOrEmpty(data)) return data;
-            
+
             var sanitized = data;
             foreach (var sensitiveField in _config.Communication.SensitiveDataFields) {
                 var pattern = $@"""{sensitiveField}"":\s*""[^""]*""";
                 sanitized = Regex.Replace(sanitized, pattern, $@"""{sensitiveField}"":""***""", RegexOptions.IgnoreCase);
             }
-            
+
             return sanitized;
         }
 
         private string FormatData(string data) {
             if (string.IsNullOrEmpty(data)) return data;
             if (!_config.Communication.ShowFormattedData) return data;
-            
+
             try {
                 // Try to format as JSON for better readability
                 var jsonDoc = JsonDocument.Parse(data);
-                return JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions { 
+                return JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions {
                     WriteIndented = false,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
@@ -223,7 +223,7 @@ namespace UniMixerServer.Services {
 
         private string ExtractMessageType(string data) {
             if (string.IsNullOrEmpty(data)) return "Unknown";
-            
+
             try {
                 var jsonDoc = JsonDocument.Parse(data);
                 if (jsonDoc.RootElement.TryGetProperty("messageType", out var messageTypeElement)) {
@@ -236,7 +236,7 @@ namespace UniMixerServer.Services {
             catch {
                 // Not JSON or parsing failed
             }
-            
+
             return "Unknown";
         }
 
@@ -264,11 +264,11 @@ namespace UniMixerServer.Services {
 
         private void LogStatistics(object state) {
             if (_disposed) return;
-            
+
             try {
                 var summary = _statistics.GetSummary();
                 Log(LogLevel.Information, "Logging Statistics: {Summary}", "Statistics", summary);
-                
+
                 if (_config.Debug.EnableVerboseMode) {
                     var categoryCounters = _statistics.GetCategoryCounters();
                     foreach (var kvp in categoryCounters) {
@@ -283,9 +283,9 @@ namespace UniMixerServer.Services {
 
         public void Dispose() {
             if (_disposed) return;
-            
+
             _statisticsTimer?.Dispose();
-            
+
             Log(LogLevel.Information, "Centralized logging service disposing", "System");
             _disposed = true;
         }

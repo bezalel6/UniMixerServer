@@ -118,7 +118,7 @@ namespace UniMixerServer.Configuration {
     }
 
     /// <summary>
-    /// Simplified logging configuration - avoids over-complication
+    /// Comprehensive logging configuration with category-specific settings
     /// </summary>
     public class LoggingConfig {
         public string LogLevel { get; set; } = "Information";
@@ -157,5 +157,95 @@ namespace UniMixerServer.Configuration {
         /// Number of data log files to retain
         /// </summary>
         public int MaxDataLogFiles { get; set; } = 30;
+
+        /// <summary>
+        /// Category-specific log level configuration
+        /// </summary>
+        public LoggingCategories Categories { get; set; } = new LoggingCategories();
+
+        /// <summary>
+        /// Debug and diagnostics configuration
+        /// </summary>
+        public LoggingDebug Debug { get; set; } = new LoggingDebug();
+
+        /// <summary>
+        /// Communication-specific logging configuration
+        /// </summary>
+        public LoggingCommunication Communication { get; set; } = new LoggingCommunication();
+    }
+
+    /// <summary>
+    /// Category-specific logging levels
+    /// </summary>
+    public class LoggingCategories {
+        public string AudioManager { get; set; } = "Information";
+        public string Communication { get; set; } = "Information";
+        public string IncomingData { get; set; } = "Debug";
+        public string OutgoingData { get; set; } = "Debug";
+        public string Protocol { get; set; } = "Debug";
+        public string StatusUpdates { get; set; } = "Information";
+        public string Performance { get; set; } = "Information";
+    }
+
+    /// <summary>
+    /// Debug and diagnostics configuration
+    /// </summary>
+    public class LoggingDebug {
+        /// <summary>
+        /// Enable periodic logging of statistics
+        /// </summary>
+        public bool EnableStatisticsLogging { get; set; } = true;
+
+        /// <summary>
+        /// Interval in milliseconds for statistics logging (0 = disabled)
+        /// </summary>
+        public int StatisticsIntervalMs { get; set; } = 60000;
+
+        /// <summary>
+        /// Enable performance monitoring and logging
+        /// </summary>
+        public bool EnablePerformanceLogging { get; set; } = true;
+
+        /// <summary>
+        /// Enable verbose mode with detailed information
+        /// </summary>
+        public bool EnableVerboseMode { get; set; } = false;
+    }
+
+    /// <summary>
+    /// Communication-specific logging configuration
+    /// </summary>
+    public class LoggingCommunication {
+        /// <summary>
+        /// Enable logging of data flow (incoming/outgoing messages)
+        /// </summary>
+        public bool EnableDataFlowLogging { get; set; } = true;
+
+        /// <summary>
+        /// Show raw data instead of formatted data
+        /// </summary>
+        public bool ShowRawData { get; set; } = false;
+
+        /// <summary>
+        /// Show formatted JSON data when possible
+        /// </summary>
+        public bool ShowFormattedData { get; set; } = true;
+
+        /// <summary>
+        /// Maximum length of data to log (longer data will be truncated)
+        /// </summary>
+        public int MaxDataLength { get; set; } = 1000;
+
+        /// <summary>
+        /// Enable protocol-specific logging
+        /// </summary>
+        public bool EnableProtocolLogging { get; set; } = true;
+
+        /// <summary>
+        /// List of field names to sanitize in logged data (passwords, tokens, etc.)
+        /// </summary>
+        public List<string> SensitiveDataFields { get; set; } = new List<string> {
+            "password", "token", "apiKey", "secret", "auth", "credential"
+        };
     }
 }
