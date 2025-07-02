@@ -170,6 +170,7 @@ namespace UniMixerServer {
                 // Initialize configurable data loggers
                 IncomingDataLogger.Initialize(finalConfig.Logging);
                 OutgoingDataLogger.Initialize(finalConfig.Logging);
+                BinaryDataLogger.Initialize(finalConfig.Logging);
                 Console.WriteLine("\n=== FINAL CONFIGURATION ===");
                 Console.WriteLine($"Device ID: {finalConfig.DeviceId}");
                 Console.WriteLine($"Status Broadcast Interval: {finalConfig.StatusBroadcastIntervalMs}ms");
@@ -186,6 +187,7 @@ namespace UniMixerServer {
                 Console.WriteLine($"Max Log Files: {finalConfig.Logging.MaxLogFiles}");
                 Console.WriteLine($"Enable Incoming Data Logging: {finalConfig.Logging.EnableIncomingDataLogging}");
                 Console.WriteLine($"Enable Outgoing Data Logging: {finalConfig.Logging.EnableOutgoingDataLogging}");
+                Console.WriteLine($"Enable Binary Data Logging: {finalConfig.Logging.EnableIncomingDataLogging} (enabled with incoming logs)");
                 Console.WriteLine($"Incoming Data Log Path: {finalConfig.Logging.IncomingDataLogPath}");
                 Console.WriteLine($"Outgoing Data Log Path: {finalConfig.Logging.OutgoingDataLogPath}");
                 Console.WriteLine($"Max Data Log File Size: {finalConfig.Logging.MaxDataLogFileSizeMB}MB");
@@ -220,6 +222,7 @@ namespace UniMixerServer {
                     Console.WriteLine("Cleaning up data loggers...");
                     IncomingDataLogger.Dispose();
                     OutgoingDataLogger.Dispose();
+                    BinaryDataLogger.Dispose();
                 };
 
                 await host.RunAsync();

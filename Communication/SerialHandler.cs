@@ -104,6 +104,9 @@ namespace UniMixerServer.Communication {
                 _logger.LogInformation("Serial handler started successfully on {Port}", _config.PortName);
                 NotifyConnectionStatusChanged(true, $"Connected to serial port {_config.PortName}");
 
+                // Log session start for binary data debugging
+                BinaryDataLogger.LogSessionStart($"Serial Port {_config.PortName}");
+
                 return Task.CompletedTask;
             }
             catch (Exception ex) {
@@ -256,9 +259,8 @@ namespace UniMixerServer.Communication {
                             var readBytes = new byte[bytesRead];
                             Array.Copy(buffer, readBytes, bytesRead);
 
-                            // Log raw binary data as ASCII for debugging using the configurable logger
-                            var asciiData = Encoding.ASCII.GetString(readBytes);
-                            IncomingDataLogger.LogIncomingData(asciiData, "Serial-Binary");
+                            // Log raw binary data as ASCII for debugging
+                            BinaryDataLogger.LogBinaryData(readBytes, "Serial");
 
                             // Process binary data through the message processor's binary method
                             await _binaryMessageProcessor!.ProcessBinaryAsync(readBytes, "Serial");
