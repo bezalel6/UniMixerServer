@@ -10,6 +10,7 @@ using UniMixerServer.Configuration;
 using UniMixerServer.Core;
 using UniMixerServer.Services;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -190,6 +191,9 @@ namespace UniMixerServer {
 
                 // Print final configuration after all cascading initialization
                 var finalConfig = host.Services.GetRequiredService<AppConfig>();
+
+                // Clear latest.log files for new session
+                ClearLatestLogFiles(finalConfig.Logging);
 
                 // Initialize configurable data loggers
                 IncomingDataLogger.Initialize(finalConfig.Logging);
@@ -413,6 +417,52 @@ namespace UniMixerServer {
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
             }
+        }
+
+        private static void ClearLatestLogFiles(LoggingConfig loggingConfig) {
+            Console.WriteLine("Clearing latest.log files for new session...");
+
+            // List of latest.log files to clear
+            var latestLogPaths = new List<string>();
+
+            // Main application latest.log
+            if (loggingConfig.EnableFileLogging) {
+                var logDir = Path.GetDirectoryName(loggingConfig.LogFilePath);
+                if (!string.IsNullOrEmpty(logDir)) {
+                    latestLogPaths.Add(Path.Combine(logDir, "latest.log"));
+                }
+            }
+
+            // Data logger latest.log files
+            if (loggingConfig.EnableIncomingDataLogging) {
+                latestLogPaths.Add("logs/incoming/latest.log");
+            }
+
+            if (loggingConfig.EnableOutgoingDataLogging) {
+                latestLogPaths.Add("logs/outgoing/latest.log");
+            }
+
+            if (loggingConfig.EnableIncomingDataLogging) { // Binary logging is enabled with incoming
+                latestLogPaths.Add("logs/binary/latest.log");
+            }
+
+            // Clear each latest.log file
+            foreach (var logPath in latestLogPaths) {
+                try {
+                    if (File.Exists(logPath)) {
+                        File.WriteAllText(logPath, string.Empty);
+                        Console.WriteLine($"✓ Cleared: {logPath}");
+                    }
+                    else {
+                        Console.WriteLine($"  (Not found: {logPath})");
+                    }
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"⚠ Failed to clear {logPath}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine("Latest.log files cleared successfully");
         }
     }
 }
