@@ -421,3 +421,5 @@ $RECYCLE.BIN/
 
 # Environment files (contains credentials)
 .env 
+
+decoded_crash*

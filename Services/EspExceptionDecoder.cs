@@ -164,7 +164,8 @@ namespace UniMixerServer.Services{
                 return CompleteCrashCapture();
             }
 
-            var lines = data.Split('\n');
+            // Properly handle different line endings
+            var lines = data.Split([ "\r\n", "\n", "\r"], StringSplitOptions.None);
             
             foreach (var line in lines){
                 var trimmedLine = line.Trim();
@@ -175,10 +176,10 @@ namespace UniMixerServer.Services{
                 // If we're already capturing a crash, continue adding data
                 if (_isCapturingCrash){
                     // Add all lines during crash capture to ensure we get everything
-                    _crashBuffer.AppendLine(line);
+                    _crashBuffer.AppendLine(trimmedLine);
                     
                     // Check if this is the end of the crash dump
-                    if (IsEndOfCrashDump(line)){
+                    if (IsEndOfCrashDump(trimmedLine)){
                         return CompleteCrashCapture();
                     }
                     continue; // Continue processing crash data
