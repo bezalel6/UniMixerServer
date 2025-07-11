@@ -253,10 +253,11 @@ namespace UniMixerServer.Services{
             }
             
             Console.WriteLine("\n🚨 ESP32 CRASH DETECTED - APPLICATION WILL EXIT 🚨");
-            Console.WriteLine("Check output above for complete crash information\n");
+            Console.WriteLine("Check output above for complete crash information");
+            Console.WriteLine("Press Ctrl+C to exit immediately or wait 3 seconds...\n");
             
-            // Give time for output to flush
-            System.Threading.Thread.Sleep(2000);
+            // Give time for output to flush - reduced time to prevent hanging
+            System.Threading.Thread.Sleep(1000);
             
             // Force exit the application
             Environment.Exit(1);
@@ -308,15 +309,55 @@ namespace UniMixerServer.Services{
                 Console.WriteLine("\n🔍 DECODED STACK TRACE:");
                 Console.WriteLine("-" * 50);
                 
-                // Decode each address
-                foreach (var address in addresses){
+                // Limit decoding to prevent infinite output on stack overflows
+                const int MAX_ADDRESSES_TO_DECODE = 15;
+                var addressesToDecode = addresses.Take(MAX_ADDRESSES_TO_DECODE).ToList();
+                
+                // Track repeated addresses to detect stack overflow patterns
+                var addressCounts = new Dictionary<uint, int>();
+                var uniqueAddresses = new List<uint>();
+                
+                foreach (var address in addressesToDecode){
+                    if (addressCounts.ContainsKey(address)){
+                        addressCounts[address]++;
+                    }
+                    else{
+                        addressCounts[address] = 1;
+                        uniqueAddresses.Add(address);
+                    }
+                }
+                
+                // Show total count and repetition info
+                Console.WriteLine($"Found {addresses.Count} total addresses, showing first {addressesToDecode.Count}");
+                if (addresses.Count > MAX_ADDRESSES_TO_DECODE){
+                    Console.WriteLine($"(Limited output to prevent infinite scrolling - likely stack overflow)");
+                }
+                Console.WriteLine();
+                
+                // Decode unique addresses only
+                foreach (var address in uniqueAddresses){
+                    var count = addressCounts[address];
                     var decoded = DecodeAddress(address, elfPath);
+                    
                     if (!string.IsNullOrEmpty(decoded)){
                         Console.WriteLine($"0x{address:X8}: {decoded}");
                     }
                     else{
                         Console.WriteLine($"0x{address:X8}: (unable to decode)");
                     }
+                    
+                    if (count > 1){
+                        Console.WriteLine($"  ↳ Repeated {count} times in backtrace");
+                    }
+                }
+                
+                // Show pattern analysis for stack overflows
+                if (addressCounts.Values.Any(c => c > 3)){
+                    Console.WriteLine();
+                    Console.WriteLine("⚠️  STACK OVERFLOW DETECTED:");
+                    Console.WriteLine("   Multiple repeated addresses indicate recursive calls or infinite loop");
+                    var mostRepeated = addressCounts.OrderByDescending(kvp => kvp.Value).First();
+                    Console.WriteLine($"   Most repeated: 0x{mostRepeated.Key:X8} ({mostRepeated.Value} times)");
                 }
                 
                 Console.WriteLine("-" * 50);
@@ -374,7 +415,12 @@ namespace UniMixerServer.Services{
                 if (process == null) return string.Empty;
 
                 var output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
+                
+                // Add timeout to prevent hanging
+                if (!process.WaitForExit(3000)){ // 3 second timeout
+                    process.Kill();
+                    return string.Empty;
+                }
 
                 if (process.ExitCode == 0 && !string.IsNullOrEmpty(output)){
                     var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
