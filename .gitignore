@@ -423,3 +423,5 @@ $RECYCLE.BIN/
 .env 
 
 decoded_crash*
+
+crash*.txt

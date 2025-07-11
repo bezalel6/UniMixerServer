@@ -558,8 +558,17 @@ namespace UniMixerServer.Services{
         private string ShortenPath(string filePath){
             if (string.IsNullOrEmpty(filePath)) return filePath;
             
+            // Normalize path separators
+            var normalizedPath = filePath.Replace('\\', '/');
+            
+            // If path contains "src/", show everything from "src/" onwards
+            var srcIndex = normalizedPath.IndexOf("src/", StringComparison.OrdinalIgnoreCase);
+            if (srcIndex >= 0){
+                return normalizedPath.Substring(srcIndex);
+            }
+            
             // Extract just the filename and parent directory
-            var parts = filePath.Replace('\\', '/').Split('/');
+            var parts = normalizedPath.Split('/');
             if (parts.Length <= 2) return filePath;
             
             // Keep last 2-3 parts of the path
