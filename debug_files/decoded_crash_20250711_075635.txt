@@ -1,0 +1,72 @@
+ESP32-S3 Crash Decoded: 2025-07-11 07:56:35
+
+ESP32 CRASH DECODED
+==================
+
+uru Meditation Error: Core  1 panic'ed (Unhandled debug exception).
+Debug exception reason: Stack canary watchpoint triggered
+(Core1_Messaging)
+Core  1 regi
+ster dump:
+PC      : 0x4037e583  PS      : 0x00060136  A0      : 0x803815dc  A1      : 0x3fc9ecf0
+A2      : 0x3fc9a29c  A3      : 0xb33fffff  A4      : 0x00
+00cdcd  A5      : 0x00060123
+A6      : 0x00060123  A7      : 0x0000abab  A8      : 0x0000abab  A9      : 0xffffffff
+A10     : 0x3fca0a4c  A11     : 0x00000e10  A12     : 0x00000000  A13
+: 0x3fc9853c
+A14     : 0x02c9a29c  A15     : 0x00ffffff  SAR     : 0x00000010  EXCCAUSE: 0x00000001
+EXCVADDR: 0x00000000  LBEG    : 0x400556d5  LEND
+: 0x400556e5  LCOUNT  : 0xfffffff7
+DECODED STACK TRACE:
+-------------------
+  #00 0x4037E583 0x4037e583: compare_and_set_native
+      └─ .../port/xtensa/port.c:301
+  #01 0x4037E580 0x4037e580: compare_and_set_native
+      └─ .../port/xtensa/port.c:301
+  #02 0x403815D9 0x403815d9: vPortEnterCritical
+      └─ .../components/heap/multi_heap.c:142 (discriminator 1)
+  #03 0x40381679 0x40381679: multi_heap_realloc_impl
+      └─ .../components/heap/multi_heap.c:230
+  #04 0x403817DC 0x403817dc: multi_heap_realloc
+      └─ .../components/heap/multi_heap_poisoning.c:300
+  #05 0x403785EE 0x403785ee: heap_caps_realloc_base
+      └─ .../components/heap/heap_caps.c:389
+  #06 0x40378662 0x40378662: heap_caps_realloc_default
+      └─ .../components/heap/heap_caps.c:263
+  #07 0x4207BD7F 0x4207bd7f: ledcWrite
+      └─ .../cores/esp32/esp32-hal-ledc.c:82
+  #08 0x4207BDF0 0x4207bdf0: pinMatrixOutAttach
+      └─ .../cores/esp32/esp32-hal-matrix.c:40
+  #09 0x4207E094 0x4207e094: _rmtCheckTXnotRX
+      └─ .../cores/esp32/esp32-hal-rmt.c:268
+  #10 0x4207E191 0x4207e191: rmtInit
+      └─ .../cores/esp32/esp32-hal-rmt.c:548
+  #11 0x4201C4AD 0x4201c4ad: int ArduinoJson::V742PB22::detail::Number::convertTo() const
+      └─ .../ArduinoJson/Variant/VariantData.hpp:280
+  #12 0x4202619A 0x4202619a: ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::ResourceManager::saveString(ArduinoJson::V742PB22::detail::RamString)
+      └─ .../messaging/system/MessageCore.cpp:189
+  #13 0x420262B3 0x420262b3: ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::StringPool::add(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::Allocator*)
+      └─ .../messaging/system/MessageCore.cpp:189
+  #14 0x420268C1 0x420268c1: ArduinoJson::V742PB22::detail::MemoryPoolList::getSlot(unsigned short) const
+      └─ .../messaging/system/MessageCore.cpp:203
+  #15 0x42026A37 0x42026a37: ArduinoJson::V742PB22::JsonPairConst::JsonPairConst(ArduinoJson::V742PB22::detail::CollectionIterator, ArduinoJson::V742PB22::detail::ResourceManager const*)
+      └─ .../messaging/system/MessageCore.cpp:203
+  #16 0x42026CAA 0x42026caa: ArduinoJson::V742PB22::detail::copyVariant(ArduinoJson::V742PB22::JsonVariant, ArduinoJson::V742PB22::JsonVariantConst)
+      └─ .../messaging/system/MessageCore.cpp:212
+  #17 0x42029697 0x42029697: __gnu_cxx::new_allocator::~new_allocator()
+      └─ .../messaging/transport/SerialEngine.cpp:260
+  #18 0x4202975D 0x4202975d: Messaging::Core1::InterruptMessagingEngine::init()
+      └─ .../messaging/transport/SerialEngine.cpp:74
+  #19 0x4202AB93 0x4202ab93: std::enable_if<std::__and_<std::__not_, std::is_move_constructible, std::is_move_assignable >::value, void>::type std::swap(std::_Any_data&, std::_Any_data&)
+      └─ .../8.4.0/bits/vector.tcc:454
+
+81b21:0x3fc9ede0 0x4207bd7f:0x3fc9ee00 0x4207bdf0:0x3fc9ee40 0x4207e094:0x3fc9ee60 0x4207e191:0x3fc9ee80 0x4201c4ad:0x3fc9eea0 0x4202619a:0x3fc9eec0 0x420262b3:0x3fc9ef30 0x420262b3:0x3fc9efa0
+0x420262b3:0x3fc9f010 0x420262b3:0x3fc9f080 0x420262b3:0x3fc9f0f0 0x420262b3:0x3fc9f160 0x420262b3:0x3fc9f1d0 0x420262b3:0x3fc9f240 0x420262b3:0x3fc9f2b0 0x420262b3:0x3fc9f320 0x420262b3:0x3f
+c9f390 0x420262b3:0x3fc9f400 0x420262b3:0x3fc9f470 0x420262b3:0x3fc9f4e0 0x420262b3:0x3fc9f550 0x420262b3:0x3fc9f5c0 0x420262b3:0x3fc9f630 0x420262b3:0x3fc9f6a0
+0x420262b3:0x3fc9f710 0x420262b3:0x3fc9f780 0x420262b3:0x3fc9f7f0 0x420262b3:0x3fc9f860 0x420262b3:0x3fc9f8d0 0x420262b3:0x3fc9f940 0x420262b3:0x3fc9f9b0 0x420262b3:0x3fc9fa20 0x420262b3:0x3f
+c9fa90 0x420262b3:0x3fc9fb00 0x420262b3:0x3fc9fb70 0x420262b3:0x3fc9fbe0 0x420262b3:0x3fc9fc50 0x420262b3:0x3fc9fcc0 0x420262b3:0x3fc9fd30 0x420262b3:0x3fc9fda0
+0x420262b3:0x3fc9fe10 0x420262b3:0x3fc9fe80 0x420262b3:0x3fc9fef0 0x420262b3:0x3fc9ff60 0x420262b3:0x3fc9ffd0 0x420262b3:0x3fca0040 0x420262b3:0x3fca00b0 0x420262b3:0x3fca0120 0x420262b3:0x3f
+ca0190 0x420262b3:0x3fca0200 0x420262b3:0x3fca0270 0x420262b3:0x3fca02e0 0x420262b3:0x3fca0350 0x420262b3:0x3fca03c0 0x420262b3:0x3fca0430 0x420262b3:0x3fca04a0 0x420262b3:0x3fca0510 0x420262b
+3:0x3fca0580 0x420262b3:0x3fca05f0 0x420262b3:0x3fca0660 0x420262b3:0x3fca06d0 0x420262b3:0x3fca0740 0x420262b3:0x3fca07b0 0x420262b3:0x3fca0820 0x420268c1:0x3fca0890 0x42026a37:0x3fca0970 0x4
+2026bbd:0x3fca0a00 0x42026caa:0x3fca0a80 0x42029697:0x3fca0ac0 0x4202975d:0x3fca0ae0 0x4202ab93:0x3fca0b80
+ELF file SHA256: 0b75c9f961a2375e

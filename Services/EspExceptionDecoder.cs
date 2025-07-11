@@ -77,7 +77,7 @@ namespace UniMixerServer.Services{
                         if (File.Exists(addr2linePath)){
                             _toolchainPath = toolchainDir;
                             _addr2linePath = addr2linePath;
-                            _logger.LogInformation("🔧 Found ESP32-S3 toolchain at: {Path}", _toolchainPath);
+                            _logger.LogInformation("Found ESP32-S3 toolchain at: {Path}", _toolchainPath);
                             break;
                         }
                     }
@@ -86,8 +86,8 @@ namespace UniMixerServer.Services{
             }
 
             if (string.IsNullOrEmpty(_toolchainPath)){
-                _logger.LogWarning("⚠️  ESP32-S3 toolchain not found. Exception decoding will be limited.");
-                _logger.LogInformation("💡 To enable full exception decoding, install ESP-IDF or PlatformIO with ESP32-S3 support");
+                _logger.LogWarning("ESP32-S3 toolchain not found. Exception decoding will be limited.");
+                _logger.LogInformation("To enable full exception decoding, install ESP-IDF or PlatformIO with ESP32-S3 support");
             }
         }
 
@@ -104,14 +104,9 @@ namespace UniMixerServer.Services{
         public bool ProcessBinaryData(byte[] data){
             if (data == null || data.Length == 0) return false;
             
-            _logger.LogTrace("🔍 ProcessBinaryData called with {Length} bytes", data.Length);
-            
             try{
                 // Convert binary data to string for pattern matching
                 var dataString = Encoding.UTF8.GetString(data);
-                _logger.LogTrace("🔍 Converted binary to string: {Length} chars - {Preview}", 
-                    dataString.Length, 
-                    dataString.Length > 100 ? dataString.Substring(0, 100) + "..." : dataString);
                 return ProcessStringData(dataString);
             }
             catch (Exception ex){
@@ -120,14 +115,10 @@ namespace UniMixerServer.Services{
                 // Try with different encodings if UTF8 fails
                 try{
                     var dataString = Encoding.ASCII.GetString(data);
-                    _logger.LogTrace("🔍 Converted binary to ASCII: {Length} chars - {Preview}", 
-                        dataString.Length, 
-                        dataString.Length > 100 ? dataString.Substring(0, 100) + "..." : dataString);
                     return ProcessStringData(dataString);
                 }
                 catch{
                     // If all encoding attempts fail, check for binary patterns
-                    _logger.LogTrace("🔍 Both UTF8 and ASCII conversion failed, checking raw binary patterns");
                     return ProcessRawBinaryData(data);
                 }
             }
@@ -139,9 +130,6 @@ namespace UniMixerServer.Services{
         /// <param name="data">Raw serial data string</param>
         /// <returns>True if a crash was detected and decoded, false otherwise</returns>
         public bool ProcessSerialData(string data){
-            _logger.LogTrace("🔍 ProcessSerialData called with {Length} chars: {Preview}", 
-                data.Length, 
-                data.Length > 100 ? data.Substring(0, 100) + "..." : data);
             return ProcessStringData(data);
         }
 
@@ -153,11 +141,9 @@ namespace UniMixerServer.Services{
         public bool ProcessJsonMessage(string jsonMessage){
             if (string.IsNullOrEmpty(jsonMessage)) return false;
 
-            _logger.LogTrace("🔍 ProcessJsonMessage called with: {Message}", jsonMessage);
-
             // Check if the JSON message contains crash information
             if (ContainsCrashIndicators(jsonMessage)){
-                _logger.LogCritical("🚨 ESP32-S3 crash detected in JSON message");
+                _logger.LogCritical("ESP32-S3 crash detected in JSON message");
                 return ProcessStringData(jsonMessage);
             }
 
@@ -172,18 +158,13 @@ namespace UniMixerServer.Services{
         private bool ProcessStringData(string data){
             if (string.IsNullOrEmpty(data)) return false;
             
-            _logger.LogTrace("🔍 ProcessStringData called with {Length} chars: {Preview}", 
-                data.Length, 
-                data.Length > 200 ? data.Substring(0, 200) + "..." : data);
-            
             // Check for crash timeout - if we've been capturing too long, force completion
             if (_isCapturingCrash && DateTime.UtcNow - _crashStartTime > TimeSpan.FromSeconds(MAX_CRASH_CAPTURE_SECONDS)){
                 _logger.LogWarning("Crash capture timeout reached, completing capture");
                 return CompleteCrashCapture();
             }
 
-            var lines = data.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            _logger.LogTrace("🔍 Split into {Count} lines", lines.Length);
+            var lines = data.Split('\n');
             
             foreach (var line in lines){
                 var trimmedLine = line.Trim();
@@ -191,17 +172,13 @@ namespace UniMixerServer.Services{
                 // Skip empty lines
                 if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
                 
-                _logger.LogTrace("🔍 Processing line: {Line}", trimmedLine);
-                
                 // If we're already capturing a crash, continue adding data
                 if (_isCapturingCrash){
-                    _logger.LogTrace("🔍 Already capturing crash, adding line to buffer");
                     // Add all lines during crash capture to ensure we get everything
-                    _crashBuffer.AppendLine(trimmedLine);
+                    _crashBuffer.AppendLine(line);
                     
                     // Check if this is the end of the crash dump
-                    if (IsEndOfCrashDump(trimmedLine)){
-                        _logger.LogTrace("🔍 End of crash dump detected");
+                    if (IsEndOfCrashDump(line)){
                         return CompleteCrashCapture();
                     }
                     continue; // Continue processing crash data
@@ -210,30 +187,22 @@ namespace UniMixerServer.Services{
                 // Only start new crash detection if we're not already processing one
                 // and haven't already completed one
                 if (!_crashDetected){
-                    _logger.LogTrace("🔍 Checking for crash patterns in line: {Line}", trimmedLine);
-                    
                     // Check for start of crash dump
                     if (GuruMeditationRegex.IsMatch(trimmedLine)){
-                        _logger.LogCritical("🚨 ESP32-S3 GURU MEDITATION ERROR DETECTED: {Line}", trimmedLine);
+                        _logger.LogCritical("ESP32-S3 GURU MEDITATION ERROR DETECTED: {Line}", trimmedLine);
                         StartCrashCapture(trimmedLine);
                         continue; // Continue processing to capture more data
                     }
                     
                     // Check for panic without full Guru Meditation
                     if (PanicRegex.IsMatch(trimmedLine) && !IsRegularDebugMessage(trimmedLine)){
-                        _logger.LogCritical("🚨 ESP32-S3 PANIC DETECTED: {Line}", trimmedLine);
+                        _logger.LogCritical("ESP32-S3 PANIC DETECTED: {Line}", trimmedLine);
                         StartCrashCapture(trimmedLine);
                         continue; // Continue processing to capture more data
                     }
-                    
-                    _logger.LogTrace("🔍 No crash pattern found in line");
-                }
-                else{
-                    _logger.LogTrace("🔍 Crash already detected, ignoring line");
                 }
             }
             
-            _logger.LogTrace("🔍 ProcessStringData completed, no crash detected");
             return false;
         }
 
@@ -242,12 +211,11 @@ namespace UniMixerServer.Services{
         /// </summary>
         /// <param name="initialLine">The first line of the crash</param>
         private void StartCrashCapture(string initialLine){
-            _logger.LogCritical("🛑 HALTING ALL NORMAL PROCESSING - ESP32-S3 CRASH DETECTED");
+            _logger.LogCritical("HALTING ALL NORMAL PROCESSING - ESP32-S3 CRASH DETECTED");
             _isCapturingCrash = true;
             _crashStartTime = DateTime.UtcNow;
             _crashBuffer.Clear();
             _crashBuffer.AppendLine(initialLine);
-            _logger.LogInformation("📝 Starting ESP32-S3 crash capture...");
         }
 
         /// <summary>
@@ -279,7 +247,6 @@ namespace UniMixerServer.Services{
             
             // If we have a backtrace line but it looks incomplete (too short), keep capturing
             if (line.Contains("Backtrace:") && line.Length < 50){
-                _logger.LogTrace("Backtrace line appears incomplete, continuing capture: {Line}", line);
                 return false;
             }
             
@@ -302,7 +269,6 @@ namespace UniMixerServer.Services{
                 if (backtraceLineIndex >= 0){
                     var linesAfterBacktrace = lines.Length - backtraceLineIndex - 1;
                     if (linesAfterBacktrace >= 3 || (string.IsNullOrWhiteSpace(line) && linesAfterBacktrace >= 1)){
-                        _logger.LogTrace("Sufficient data captured after backtrace, ending capture");
                         return true;
                     }
                 }
@@ -324,26 +290,8 @@ namespace UniMixerServer.Services{
         private bool CompleteCrashCapture(){
             var crashData = _crashBuffer.ToString();
             
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("🚨 ESP32-S3 CRASH DUMP CAPTURED");
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("📊 CRASH STATISTICS:");
-            _logger.LogCritical("   Buffer Size: {Size} characters", crashData.Length);
-            _logger.LogCritical("   Capture Duration: {Duration:F2} seconds", (DateTime.UtcNow - _crashStartTime).TotalSeconds);
-            _logger.LogCritical("   Lines Captured: {Lines}", crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("📝 COMPLETE CRASH DATA:");
-            _logger.LogCritical("=====================================");
-            
-            // Print crash data line by line for clarity
-            var lines = crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < lines.Length; i++){
-                _logger.LogCritical("[{LineNum:D3}] {Line}", i + 1, lines[i]);
-            }
-            
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("🔧 ATTEMPTING ESP32-S3 CRASH DECODE...");
-            _logger.LogCritical("=====================================");
+            // Only log essential crash detection info
+            _logger.LogCritical("ESP32-S3 CRASH DETECTED");
             
             // Mark crash as detected to prevent multiple detections
             _crashDetected = true;
@@ -352,32 +300,26 @@ namespace UniMixerServer.Services{
             // Decode the crash using modern ESP-IDF tools
             var decoded = DecodeException(crashData);
             
-            _logger.LogCritical("=====================================");
-            if (decoded){
-                _logger.LogCritical("✅ ESP32-S3 CRASH SUCCESSFULLY DECODED");
+            if (!decoded){
+                _logger.LogError("CRASH DECODING FAILED");
+                // Show raw crash data if decoding failed
+                Console.WriteLine("\nRAW CRASH DATA:");
+                var lines = crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines){
+                    Console.WriteLine(line.Trim());
+                }
             }
-            else{
-                _logger.LogError("❌ ESP32-S3 CRASH DECODING FAILED");
-                _logger.LogCritical("📄 Raw crash data is still available above");
-            }
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("🛑 EXITING APPLICATION FOR DEBUGGING");
-            _logger.LogCritical("=====================================");
             
-            // Force console output and log flushing
-            Console.WriteLine("=====================================");
-            Console.WriteLine("🚨 ESP32-S3 CRASH DETECTED - APPLICATION EXITING");
-            Console.WriteLine("Check logs above for complete crash dump and decode");
-            Console.WriteLine("=====================================");
+            Console.WriteLine("\nESP32-S3 CRASH DETECTED - APPLICATION EXITING");
+            Console.WriteLine("Check output above for complete crash information\n");
             
-            // Give more time for logs to flush completely
-            System.Threading.Thread.Sleep(3000);
+            // Give time for output to flush
+            System.Threading.Thread.Sleep(1000);
             
             // Force exit the application
-            _logger.LogCritical("🔥 FORCE EXITING APPLICATION NOW");
             Environment.Exit(1);
             
-            return true; // This line will never be reached due to Environment.Exit
+            return true;
         }
 
         /// <summary>
@@ -400,7 +342,7 @@ namespace UniMixerServer.Services{
 
             foreach (var pattern in crashPatterns){
                 if (ContainsBytePattern(data, pattern)){
-                    _logger.LogCritical("🚨 ESP32-S3 crash pattern detected in binary data");
+                    _logger.LogCritical("ESP32-S3 crash pattern detected in binary data");
                     // Try to extract readable text around the pattern
                     var contextText = ExtractTextContext(data, pattern);
                     if (!string.IsNullOrEmpty(contextText)){
@@ -510,54 +452,52 @@ namespace UniMixerServer.Services{
             try{
                 var elfPath = Path.Combine(_debugFilesPath, "firmware.elf");
                 if (!File.Exists(elfPath)){
-                    _logger.LogError("Firmware ELF file not found at: {Path}", elfPath);
-                    _logger.LogError("Make sure your ESP32-S3 build system uploads the firmware.elf file to debug_files/");
-                    return false;
+                    _logger.LogError("Firmware ELF file not found: {Path}", elfPath);
+                    return ManualDecoding(crashData);
                 }
 
                 if (string.IsNullOrEmpty(_addr2linePath) || !File.Exists(_addr2linePath)){
-                    _logger.LogError("ESP32-S3 addr2line tool not found at: {Path}", _addr2linePath ?? "null");
-                    _logger.LogError("Install ESP-IDF with ESP32-S3 support to enable exception decoding");
+                    _logger.LogError("addr2line tool not found: {Path}", _addr2linePath ?? "null");
                     return ManualDecoding(crashData);
                 }
-
-                _logger.LogInformation("🔧 Decoding ESP32-S3 crash using modern ESP-IDF tools:");
-                _logger.LogInformation("   📁 ELF file: {ElfPath}", elfPath);
-                _logger.LogInformation("   🛠️ addr2line: {Addr2linePath}", _addr2linePath);
 
                 // Extract addresses from the crash data
                 var addresses = ExtractAddresses(crashData);
+                _logger.LogInformation("Found {Count} addresses in crash data", addresses.Count);
+                
                 if (addresses.Count == 0){
-                    _logger.LogWarning("No addresses found in crash data for decoding");
+                    _logger.LogWarning("No addresses found in crash data");
                     return ManualDecoding(crashData);
                 }
-
-                _logger.LogInformation("📍 Found {Count} addresses to decode", addresses.Count);
 
                 // Decode each address
                 var decodedLines = new List<string>();
                 foreach (var address in addresses){
                     var decoded = DecodeAddress(address, elfPath);
                     if (!string.IsNullOrEmpty(decoded)){
-                        decodedLines.Add($"0x{address:X8}: {decoded}");
+                        // Clean up the decoded line to remove duplicate address info
+                        var cleanLine = decoded;
+                        if (decoded.Contains(": 0x")){
+                            var colonIndex = decoded.IndexOf(": ");
+                            if (colonIndex > 0){
+                                cleanLine = decoded.Substring(colonIndex + 2);
+                            }
+                        }
+                        decodedLines.Add($"0x{address:X8}: {cleanLine}");
                     }
                 }
 
+                _logger.LogInformation("Successfully decoded {Count} addresses", decodedLines.Count);
+
                 if (decodedLines.Count > 0){
-                    _logger.LogCritical("🎯 ESP32-S3 CRASH DECODED SUCCESSFULLY:");
-                    _logger.LogCritical("=====================================");
-                    foreach (var line in decodedLines){
-                        _logger.LogCritical("{DecodedLine}", line);
-                    }
-                    _logger.LogCritical("=====================================");
+                    // Display the crash with decoded stack trace
+                    ShowCrashWithDecodedTrace(crashData, decodedLines);
                     
                     // Save decoded output to file
                     var decodedFile = Path.Combine(_debugFilesPath, $"decoded_crash_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
                     Directory.CreateDirectory(_debugFilesPath);
-                    File.WriteAllText(decodedFile, $"ESP32-S3 Crash Decoded at {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n" +
-                                                   $"Original Crash:\n{crashData}\n\n" +
-                                                   $"Decoded Backtrace:\n{string.Join("\n", decodedLines)}");
-                    _logger.LogInformation("💾 Decoded crash saved to: {DecodedFile}", decodedFile);
+                    var crashWithDecoded = GetCrashWithDecodedTrace(crashData, decodedLines);
+                    File.WriteAllText(decodedFile, $"ESP32-S3 Crash Decoded: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n{crashWithDecoded}");
                     
                     return true;
                 }
@@ -567,13 +507,310 @@ namespace UniMixerServer.Services{
                 }
             }
             catch (Exception ex){
-                _logger.LogError(ex, "Exception occurred while decoding ESP32-S3 crash");
+                _logger.LogError(ex, "Exception while decoding crash");
                 return ManualDecoding(crashData);
+            }
+        }
+        
+        /// <summary>
+        /// Cleans up function names by removing template parameters and shortening paths
+        /// </summary>
+        /// <param name="decodedLine">Raw decoded line from addr2line</param>
+        /// <returns>Cleaned up function name</returns>
+        private string CleanupFunctionName(string decodedLine){
+            if (string.IsNullOrEmpty(decodedLine)) return decodedLine;
+            
+            var cleaned = decodedLine;
+            
+            // Remove template parameters and namespace clutter
+            cleaned = Regex.Replace(cleaned, @"ArduinoJson::V[0-9A-F]+::", "ArduinoJson::");
+            cleaned = Regex.Replace(cleaned, @"<[^<>]*(?:<[^<>]*>[^<>]*)*>", "");
+            cleaned = Regex.Replace(cleaned, @"\s+", " ");
+            
+            // Shorten extremely long function names
+            if (cleaned.Length > 80){
+                var parts = cleaned.Split(new[] { " at " }, StringSplitOptions.None);
+                if (parts.Length == 2){
+                    var funcName = parts[0].Trim();
+                    var location = parts[1].Trim();
+                    
+                    // Simplify function name
+                    if (funcName.Contains("::")){
+                        var lastPart = funcName.Split(new[] { "::" }, StringSplitOptions.None).LastOrDefault();
+                        if (!string.IsNullOrEmpty(lastPart) && lastPart.Length > 10){
+                            funcName = "..." + lastPart;
+                        }
+                    }
+                    
+                    cleaned = $"{funcName} at {location}";
+                }
+            }
+            
+            return cleaned;
+        }
+
+        /// <summary>
+        /// Shortens file paths to be more readable
+        /// </summary>
+        /// <param name="filePath">Full file path</param>
+        /// <returns>Shortened path</returns>
+        private string ShortenPath(string filePath){
+            if (string.IsNullOrEmpty(filePath)) return filePath;
+            
+            // Extract just the filename and parent directory
+            var parts = filePath.Replace('\\', '/').Split('/');
+            if (parts.Length <= 2) return filePath;
+            
+            // Keep last 2-3 parts of the path
+            var keepParts = Math.Min(3, parts.Length);
+            return ".../" + string.Join("/", parts.Skip(parts.Length - keepParts));
+        }
+
+        /// <summary>
+        /// Writes colored text to console
+        /// </summary>
+        /// <param name="text">Text to write</param>
+        /// <param name="color">Color to use</param>
+        /// <param name="newLine">Whether to add a new line</param>
+        private void WriteColored(string text, ConsoleColor color, bool newLine = true){
+            var originalColor = Console.ForegroundColor;
+            try{
+                Console.ForegroundColor = color;
+                if (newLine){
+                    Console.WriteLine(text);
+                } else{
+                    Console.Write(text);
+                }
+            }
+            finally{
+                Console.ForegroundColor = originalColor;
             }
         }
 
         /// <summary>
+        /// Formats register dump with colors and better spacing
+        /// </summary>
+        /// <param name="line">Register dump line</param>
+        private void DisplayRegisterLine(string line){
+            if (string.IsNullOrEmpty(line)) return;
+            
+            // Check if this is a register line
+            var registerMatch = Regex.Match(line, @"^([A-Z0-9]+)\s*:\s*(0x[0-9a-fA-F]+)(.*)$");
+            if (registerMatch.Success){
+                WriteColored("  ", ConsoleColor.White, false);
+                WriteColored($"{registerMatch.Groups[1].Value,-8}", ConsoleColor.Yellow, false);
+                WriteColored(": ", ConsoleColor.White, false);
+                WriteColored($"{registerMatch.Groups[2].Value}", ConsoleColor.Cyan, false);
+                WriteColored($"{registerMatch.Groups[3].Value}", ConsoleColor.Gray, true);
+            } else{
+                WriteColored($"  {line}", ConsoleColor.Gray);
+            }
+        }
 
+        /// <summary>
+        /// Displays the crash data with decoded stack trace replacing the raw backtrace
+        /// </summary>
+        /// <param name="crashData">Raw crash data</param>
+        /// <param name="decodedLines">Decoded stack trace lines</param>
+        private void ShowCrashWithDecodedTrace(string crashData, List<string> decodedLines){
+            var lines = crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            
+            _logger.LogInformation("ShowCrashWithDecodedTrace called with {Count} decoded lines", decodedLines.Count);
+            
+            Console.WriteLine();
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            WriteColored("                              ESP32 CRASH DETECTED                              ", ConsoleColor.Red);
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            Console.WriteLine();
+            
+            bool inRegisterDump = false;
+            bool foundBacktrace = false;
+            bool skipBacktraceLines = false;
+            
+            foreach (var line in lines){
+                var trimmedLine = line.Trim();
+                
+                // Skip raw backtrace continuation lines after we've shown the decoded version
+                if (skipBacktraceLines && trimmedLine.Contains("0x") && trimmedLine.Contains(":")){
+                    continue;
+                }
+                
+                // Handle Guru Meditation Error
+                if (GuruMeditationRegex.IsMatch(trimmedLine)){
+                    WriteColored("🔥 GURU MEDITATION ERROR:", ConsoleColor.Red);
+                    var match = GuruMeditationRegex.Match(trimmedLine);
+                    WriteColored($"   Core {match.Groups[1].Value} panic'ed: {match.Groups[2].Value}", ConsoleColor.Yellow);
+                    Console.WriteLine();
+                    continue;
+                }
+                
+                // Handle panic reason
+                if (trimmedLine.StartsWith("Debug exception reason:")){
+                    WriteColored("📍 REASON:", ConsoleColor.Red);
+                    WriteColored($"   {trimmedLine.Substring(22).Trim()}", ConsoleColor.Yellow);
+                    Console.WriteLine();
+                    continue;
+                }
+                
+                // Handle register dump header
+                if (trimmedLine.Contains("register dump:")){
+                    inRegisterDump = true;
+                    skipBacktraceLines = false;
+                    WriteColored("📊 REGISTER DUMP:", ConsoleColor.Magenta);
+                    continue;
+                }
+                
+                // Handle register dump lines
+                if (inRegisterDump && (trimmedLine.Contains(":") && trimmedLine.Contains("0x"))){
+                    DisplayRegisterLine(trimmedLine);
+                    continue;
+                }
+                
+                // Handle backtrace
+                if (trimmedLine.StartsWith("Backtrace:")){
+                    foundBacktrace = true;
+                    inRegisterDump = false;
+                    skipBacktraceLines = true; // Start skipping raw backtrace lines
+                    Console.WriteLine();
+                    WriteColored("🔍 DECODED STACK TRACE:", ConsoleColor.Green);
+                    
+                    _logger.LogInformation("Found backtrace line, showing {Count} decoded addresses", decodedLines.Count);
+                    
+                    for (int i = 0; i < decodedLines.Count; i++){
+                        var decodedLine = decodedLines[i];
+                        
+                        // Extract address and function info
+                        var parts = decodedLine.Split(new[] { ": " }, 2, StringSplitOptions.None);
+                        if (parts.Length == 2){
+                            var address = parts[0];
+                            var funcInfo = CleanupFunctionName(parts[1]);
+                            
+                            // Split function info into parts
+                            var funcParts = funcInfo.Split(new[] { " at " }, 2, StringSplitOptions.None);
+                            if (funcParts.Length == 2){
+                                var funcName = funcParts[0].Trim();
+                                var location = ShortenPath(funcParts[1].Trim());
+                                
+                                WriteColored($"  #{i,-2} ", ConsoleColor.White, false);
+                                WriteColored($"{address} ", ConsoleColor.Cyan, false);
+                                WriteColored($"{funcName}", ConsoleColor.Yellow);
+                                WriteColored($"      └─ {location}", ConsoleColor.Gray);
+                            } else{
+                                WriteColored($"  #{i,-2} ", ConsoleColor.White, false);
+                                WriteColored($"{address} ", ConsoleColor.Cyan, false);
+                                WriteColored($"{funcInfo}", ConsoleColor.Yellow);
+                            }
+                        } else{
+                            WriteColored($"  #{i,-2} {decodedLine}", ConsoleColor.Gray);
+                        }
+                    }
+                    Console.WriteLine();
+                    continue;
+                }
+                
+                // Handle other lines (but not raw backtrace continuation lines)
+                if (trimmedLine.StartsWith("Core") || trimmedLine.StartsWith("PC") || trimmedLine.StartsWith("ELF")){
+                    inRegisterDump = false;
+                    skipBacktraceLines = false;
+                    WriteColored($"ℹ️  {trimmedLine}", ConsoleColor.Gray);
+                } else if (!string.IsNullOrWhiteSpace(trimmedLine) && !skipBacktraceLines){
+                    WriteColored($"   {trimmedLine}", ConsoleColor.Gray);
+                }
+            }
+            
+            if (!foundBacktrace){
+                _logger.LogWarning("No backtrace line found in crash data, showing decoded addresses anyway");
+                Console.WriteLine();
+                WriteColored("🔍 DECODED STACK TRACE:", ConsoleColor.Green);
+                
+                for (int i = 0; i < decodedLines.Count; i++){
+                    var decodedLine = decodedLines[i];
+                    
+                    // Extract address and function info
+                    var parts = decodedLine.Split(new[] { ": " }, 2, StringSplitOptions.None);
+                    if (parts.Length == 2){
+                        var address = parts[0];
+                        var funcInfo = CleanupFunctionName(parts[1]);
+                        
+                        // Split function info into parts
+                        var funcParts = funcInfo.Split(new[] { " at " }, 2, StringSplitOptions.None);
+                        if (funcParts.Length == 2){
+                            var funcName = funcParts[0].Trim();
+                            var location = ShortenPath(funcParts[1].Trim());
+                            
+                            WriteColored($"  #{i,-2} ", ConsoleColor.White, false);
+                            WriteColored($"{address} ", ConsoleColor.Cyan, false);
+                            WriteColored($"{funcName}", ConsoleColor.Yellow);
+                            WriteColored($"      └─ {location}", ConsoleColor.Gray);
+                        } else{
+                            WriteColored($"  #{i,-2} ", ConsoleColor.White, false);
+                            WriteColored($"{address} ", ConsoleColor.Cyan, false);
+                            WriteColored($"{funcInfo}", ConsoleColor.Yellow);
+                        }
+                    } else{
+                        WriteColored($"  #{i,-2} {decodedLine}", ConsoleColor.Gray);
+                    }
+                }
+                Console.WriteLine();
+            }
+            
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            Console.WriteLine();
+        }
+        
+        /// <summary>
+        /// Gets the crash data with decoded stack trace replacing the raw backtrace
+        /// </summary>
+        /// <param name="crashData">Raw crash data</param>
+        /// <param name="decodedLines">Decoded stack trace lines</param>
+        /// <returns>Formatted crash data with decoded trace</returns>
+        private string GetCrashWithDecodedTrace(string crashData, List<string> decodedLines){
+            var lines = crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var result = new StringBuilder();
+            
+            result.AppendLine("ESP32 CRASH DECODED");
+            result.AppendLine("==================");
+            result.AppendLine();
+            
+            foreach (var line in lines){
+                var trimmedLine = line.Trim();
+                
+                // Replace backtrace with decoded stack trace
+                if (trimmedLine.StartsWith("Backtrace:")){
+                    result.AppendLine("DECODED STACK TRACE:");
+                    result.AppendLine("-------------------");
+                    
+                    for (int i = 0; i < decodedLines.Count; i++){
+                        var decodedLine = decodedLines[i];
+                        var parts = decodedLine.Split(new[] { ": " }, 2, StringSplitOptions.None);
+                        if (parts.Length == 2){
+                            var address = parts[0];
+                            var funcInfo = CleanupFunctionName(parts[1]);
+                            
+                            var funcParts = funcInfo.Split(new[] { " at " }, 2, StringSplitOptions.None);
+                            if (funcParts.Length == 2){
+                                var funcName = funcParts[0].Trim();
+                                var location = ShortenPath(funcParts[1].Trim());
+                                
+                                result.AppendLine($"  #{i:D2} {address} {funcName}");
+                                result.AppendLine($"      └─ {location}");
+                            } else{
+                                result.AppendLine($"  #{i:D2} {address} {funcInfo}");
+                            }
+                        } else{
+                            result.AppendLine($"  #{i:D2} {decodedLine}");
+                        }
+                    }
+                    result.AppendLine();
+                } else{
+                    result.AppendLine(trimmedLine);
+                }
+            }
+            
+            return result.ToString();
+        }
+
+        /// <summary>
         /// Extracts addresses from ESP32/ESP32-S3 crash data for decoding
         /// </summary>
         /// <param name="crashData">Raw crash data</param>
@@ -585,6 +822,7 @@ namespace UniMixerServer.Services{
             var mepcMatch = Regex.Match(crashData, @"MEPC\s*:\s*0x([0-9a-fA-F]+)");
             if (mepcMatch.Success){
                 if (uint.TryParse(mepcMatch.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out var mepc)){
+                 
                     addresses.Add(mepc);
                 }
             }
@@ -686,7 +924,6 @@ namespace UniMixerServer.Services{
                     return output;
                 }
                 else{
-                    _logger.LogTrace("addr2line failed for 0x{Address:X8}: {Error}", address, error);
                     return string.Empty;
                 }
             }
@@ -702,41 +939,138 @@ namespace UniMixerServer.Services{
         /// <param name="crashData">Raw crash data</param>
         /// <returns>True if manual decoding was provided</returns>
         private bool ManualDecoding(string crashData){
-            _logger.LogCritical("🔍 ESP32-S3 MANUAL CRASH ANALYSIS:");
-            _logger.LogCritical("=====================================");
+            // Show the crash data with improved formatting
+            Console.WriteLine();
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            WriteColored("                              ESP32 CRASH DETECTED                              ", ConsoleColor.Red);
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            Console.WriteLine();
+            
+            var lines = crashData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            bool inRegisterDump = false;
+            bool inBacktrace = false;
+            
+            foreach (var line in lines){
+                var trimmedLine = line.Trim();
+                
+                // Handle Guru Meditation Error
+                if (GuruMeditationRegex.IsMatch(trimmedLine)){
+                    WriteColored("🔥 GURU MEDITATION ERROR:", ConsoleColor.Red);
+                    var match = GuruMeditationRegex.Match(trimmedLine);
+                    WriteColored($"   Core {match.Groups[1].Value} panic'ed: {match.Groups[2].Value}", ConsoleColor.Yellow);
+                    Console.WriteLine();
+                    continue;
+                }
+                
+                // Handle panic reason
+                if (trimmedLine.StartsWith("Debug exception reason:")){
+                    WriteColored("📍 REASON:", ConsoleColor.Red);
+                    WriteColored($"   {trimmedLine.Substring(22).Trim()}", ConsoleColor.Yellow);
+                    Console.WriteLine();
+                    continue;
+                }
+                
+                // Handle register dump
+                if (trimmedLine.Contains("register dump:")){
+                    inRegisterDump = true;
+                    inBacktrace = false;
+                    WriteColored("📊 REGISTER DUMP:", ConsoleColor.Magenta);
+                    continue;
+                }
+                
+                if (inRegisterDump && (trimmedLine.Contains(":") && trimmedLine.Contains("0x"))){
+                    DisplayRegisterLine(trimmedLine);
+                    continue;
+                }
+                
+                // Handle backtrace - check for both the start and continuation lines
+                if (trimmedLine.StartsWith("Backtrace:") || (inBacktrace && trimmedLine.Contains("0x"))){
+                    // First backtrace line
+                    if (trimmedLine.StartsWith("Backtrace:")){
+                        inRegisterDump = false;
+                        inBacktrace = true;
+                        Console.WriteLine();
+                        WriteColored("🔍 RAW BACKTRACE:", ConsoleColor.Green);
+                        
+                        // Extract addresses from the backtrace line
+                        var backtraceAddresses = ExtractBacktraceAddresses(trimmedLine);
+                        WriteColored($"   Found {backtraceAddresses.Count} addresses in backtrace", ConsoleColor.Gray);
+                        
+                        // Show a few addresses for reference
+                        if (backtraceAddresses.Count > 0){
+                            WriteColored("   Key addresses:", ConsoleColor.Gray);
+                            for (int i = 0; i < Math.Min(5, backtraceAddresses.Count); i++){
+                                WriteColored($"     #{i}: 0x{backtraceAddresses[i]:X8}", ConsoleColor.Cyan);
+                            }
+                            if (backtraceAddresses.Count > 5){
+                                WriteColored($"     ... and {backtraceAddresses.Count - 5} more", ConsoleColor.Gray);
+                            }
+                        }
+                        continue;
+                    }
+                    // Continuation backtrace line
+                    else if (inBacktrace && trimmedLine.Contains("0x")){
+                        continue; // Skip continuation lines, already handled above
+                    }
+                }
+                
+                // If we were in backtrace and hit a non-backtrace line, end backtrace mode
+                if (inBacktrace && !trimmedLine.Contains("0x")){
+                    inBacktrace = false;
+                }
+                
+                // Handle other lines
+                if (trimmedLine.StartsWith("Core") || trimmedLine.StartsWith("PC") || trimmedLine.StartsWith("ELF")){
+                    inRegisterDump = false;
+                    inBacktrace = false;
+                    WriteColored($"ℹ️  {trimmedLine}", ConsoleColor.Gray);
+                } else if (!string.IsNullOrWhiteSpace(trimmedLine) && !inBacktrace){
+                    WriteColored($"   {trimmedLine}", ConsoleColor.Gray);
+                }
+            }
+            
+            // Show manual analysis with colors
+            Console.WriteLine();
+            WriteColored("🔧 MANUAL ANALYSIS:", ConsoleColor.Yellow);
             
             // Extract and analyze key registers
             var mepcMatch = Regex.Match(crashData, @"MEPC\s*:\s*0x([0-9a-fA-F]+)");
             if (mepcMatch.Success){
-                _logger.LogCritical("📍 MEPC (Machine Exception Program Counter): 0x{Address}", mepcMatch.Groups[1].Value);
-                _logger.LogCritical("   This is where the crash occurred");
+                WriteColored("  🎯 CRASH LOCATION:", ConsoleColor.Cyan);
+                WriteColored($"     MEPC: 0x{mepcMatch.Groups[1].Value} (Machine Exception Program Counter)", ConsoleColor.White);
+                WriteColored("     → This is where the crash occurred", ConsoleColor.Gray);
             }
 
             var raMatch = Regex.Match(crashData, @"RA\s*:\s*0x([0-9a-fA-F]+)");
             if (raMatch.Success){
-                _logger.LogCritical("📍 RA (Return Address): 0x{Address}", raMatch.Groups[1].Value);
-                _logger.LogCritical("   This is where the crash came from");
+                WriteColored("  🔙 RETURN ADDRESS:", ConsoleColor.Cyan);
+                WriteColored($"     RA: 0x{raMatch.Groups[1].Value} (Return Address)", ConsoleColor.White);
+                WriteColored("     → This is where the crash came from", ConsoleColor.Gray);
             }
 
             var mcauseMatch = Regex.Match(crashData, @"MCAUSE\s*:\s*0x([0-9a-fA-F]+)");
             if (mcauseMatch.Success){
                 var mcause = mcauseMatch.Groups[1].Value;
-                _logger.LogCritical("📍 MCAUSE (Machine Cause): 0x{Cause}", mcause);
-                _logger.LogCritical("   {CauseDescription}", GetMCauseDescription(mcause));
+                WriteColored("  ⚠️  CRASH CAUSE:", ConsoleColor.Cyan);
+                WriteColored($"     MCAUSE: 0x{mcause} (Machine Cause)", ConsoleColor.White);
+                WriteColored($"     → {GetMCauseDescription(mcause)}", ConsoleColor.Gray);
             }
 
             var mtvalMatch = Regex.Match(crashData, @"MTVAL\s*:\s*0x([0-9a-fA-F]+)");
             if (mtvalMatch.Success){
-                _logger.LogCritical("📍 MTVAL (Machine Trap Value): 0x{Value}", mtvalMatch.Groups[1].Value);
-                _logger.LogCritical("   This is the faulting address (for access faults)");
+                WriteColored("  📍 FAULT ADDRESS:", ConsoleColor.Cyan);
+                WriteColored($"     MTVAL: 0x{mtvalMatch.Groups[1].Value} (Machine Trap Value)", ConsoleColor.White);
+                WriteColored("     → This is the faulting address (for access faults)", ConsoleColor.Gray);
             }
 
-            _logger.LogCritical("=====================================");
-            _logger.LogCritical("💡 To get full function names and line numbers:");
-            _logger.LogCritical("   1. Install ESP-IDF with ESP32-S3 support");
-            _logger.LogCritical("   2. Use: riscv32-esp-elf-addr2line -pfiaC -e firmware.elf <address>");
-            _logger.LogCritical("   3. Or use: idf.py monitor (automatically decodes crashes)");
-            _logger.LogCritical("=====================================");
+            Console.WriteLine();
+            WriteColored("💡 TO GET FULL FUNCTION NAMES AND LINE NUMBERS:", ConsoleColor.Yellow);
+            WriteColored("   1. Install ESP-IDF with ESP32-S3 support", ConsoleColor.Gray);
+            WriteColored("   2. Use: riscv32-esp-elf-addr2line -pfiaC -e firmware.elf <address>", ConsoleColor.Gray);
+            WriteColored("   3. Or use: idf.py monitor (automatically decodes crashes)", ConsoleColor.Gray);
+            
+            WriteColored("═══════════════════════════════════════════════════════════════════════════════", ConsoleColor.Red);
+            Console.WriteLine();
 
             return true;
         }
@@ -790,6 +1124,29 @@ namespace UniMixerServer.Services{
             _crashDetected = false;
             _isCapturingCrash = false;
             _crashBuffer.Clear();
+        }
+
+        /// <summary>
+        /// Extracts addresses from a backtrace line
+        /// </summary>
+        /// <param name="backtraceLine">The backtrace line</param>
+        /// <returns>List of addresses found</returns>
+        private List<uint> ExtractBacktraceAddresses(string backtraceLine){
+            var addresses = new List<uint>();
+            var matches = Regex.Matches(backtraceLine, @"0x([0-9a-fA-F]+)");
+            
+            foreach (Match match in matches){
+                if (uint.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out var addr)){
+                    // Only add if it looks like a code address (starts with 4, 5, or 6)
+                    if ((addr & 0xF0000000) == 0x40000000 || 
+                        (addr & 0xF0000000) == 0x50000000 || 
+                        (addr & 0xF0000000) == 0x60000000){
+                        addresses.Add(addr);
+                    }
+                }
+            }
+            
+            return addresses;
         }
     }
 } 

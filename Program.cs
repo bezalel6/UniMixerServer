@@ -41,11 +41,7 @@ namespace UniMixerServer {
                 return;
             }
 
-            // Check if we should test exception decoder
-            if (args.Length > 0 && args[0].Equals("--test-decoder", StringComparison.OrdinalIgnoreCase)) {
-                await TestExceptionDecoder.RunTest();
-                return;
-            }
+
 
             // Load .env file for credentials
             EnvLoader.Load();

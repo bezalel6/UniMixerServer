@@ -1,0 +1,51 @@
+ESP32-S3 Crash Decoded: 2025-07-11 07:54:35
+
+ESP32 CRASH DECODED
+==================
+
+uru Meditation Error: Core  1 panic'ed (Unhandled debug exception).
+Debug exception reason: St
+ack canary watchpoint triggered
+(Core1_Messaging)
+Core  1 register dump:
+PC      : 0x4037e583  PS      : 0x00060136  A0      : 0x803815dc  A1      : 0x3fc9ecf0
+A2      : 0x3fc9a29c  A3
+: 0xb33fffff  A4      : 0x0000cdcd  A5      : 0x00060123
+A6      : 0x00060123  A7      : 0x0000abab  A8      : 0x0000abab  A9      : 0xffffffff
+A10     : 0x3fca0a4c  A11     : 0x0000
+0e10  A12     : 0x00000000  A13     : 0x3fc9853c
+A14     : 0x02c9a29c  A15     : 0x00ffffff  SAR     : 0x00000010  EXCCAUSE: 0x00000001
+EXCVADDR: 0x000000
+00  LBEG    : 0x400556d5  LEND    : 0x400556e5  LCOUNT  : 0xfffffff7
+DECODED STACK TRACE:
+-------------------
+  #00 0x4037E583 0x4037e583: compare_and_set_native
+      └─ .../port/xtensa/port.c:301
+  #01 0x4037E580 0x4037e580: compare_and_set_native
+      └─ .../port/xtensa/port.c:301
+  #02 0x403815D9 0x403815d9: vPortEnterCritical
+      └─ .../components/heap/multi_heap.c:142 (discriminator 1)
+  #03 0x40381679 0x40381679: multi_heap_realloc_impl
+      └─ .../components/heap/multi_heap.c:230
+  #04 0x403785EE 0x403785ee: heap_caps_realloc_base
+      └─ .../components/heap/heap_caps.c:389
+  #05 0x40378662 0x40378662: heap_caps_realloc_default
+      └─ .../components/heap/heap_caps.c:263
+  #06 0x40381B21 0x40381b21: realloc
+      └─ .../components/newlib/heap.c:34
+  #07 0x4207BD7F 0x4207bd7f: ledcWrite
+      └─ .../cores/esp32/esp32-hal-ledc.c:82
+  #08 0x4207BDF0 0x4207bdf0: pinMatrixOutAttach
+      └─ .../cores/esp32/esp32-hal-matrix.c:40
+  #09 0x4207E094 0x4207e094: _rmtCheckTXnotRX
+      └─ .../cores/esp32/esp32-hal-rmt.c:268
+  #10 0x4207E191 0x4207e191: rmtInit
+      └─ .../cores/esp32/esp32-hal-rmt.c:548
+  #11 0x4201C4AD 0x4201c4ad: int ArduinoJson::V742PB22::detail::Number::convertTo() const
+      └─ .../ArduinoJson/Variant/VariantData.hpp:280
+  #12 0x420262B3 0x420262b3: ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::StringPool::add(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::Allocator*)
+      └─ .../messaging/system/MessageCore.cpp:189
+
+7dc:0x3fc9ed70 0x403785ee:0x3fc9ed90 0x40378662:0x3fc9edc0 0x40381b21:0x3fc9ede0 0x4207bd7f:0x3fc9ee00 0x4207bdf0:0x3fc9ee40 0x4207e094:0x3fc9ee60 0x4207e191:0x3fc9ee80 0x4201c4ad:0x3fc9eea0 0
+x4202619a:0x3fc9eec0 0x420262b3:0x3fc9ef30 0x420262b3:0x3fc9efa0 0x420262b3:0x3fc9f010 0x420262b3:0x3fc9f080 0x420262b3:0x3fc9f0f0 0x420262b3:0x3fc9f160 0x420262b3:0x3fc9f1d0 0x420262b3:0x3fc9
+f240 0x420262b3:0x3fc9f2b0 0x420262b3:0x3fc9f320 0x420262b3:0x3fc9f390 0x420262b3:0x3fc9f400 0x420262b3:0x3fc9f470 0x420262b3:0x3fc9f4e0 0x420262b3:0x3fc9f550 0x420262b3:0x3fc9f5c0 0x420262b3:

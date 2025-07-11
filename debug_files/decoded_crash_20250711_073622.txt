@@ -1,0 +1,54 @@
+ESP32-S3 Crash Decoded: 2025-07-11 07:36:22
+
+uru Meditation Error: Core  1 panic'ed (Unhandled debug exception).
+Debug exception reason: Stack canary watchpoint triggered (Core1_Messaging)
+Core  1 register dump:
+PC      : 0x4037b7d4
+PS      : 0x00060536  A0
+: 0x403790f1  A1      : 0x3fc9ecd0
+A2      : 0x3fca0d10  A3      : 0x00000e10  A4      : 0x00001800  A5      : 0xff928d10
+A6      : 0x00067fff  A7      : 0x00000d98  A8      : 0x3fc9eec0  A9      : 0x3fc9eea0
+A10     : 0x3fca0918  A11     : 0x3c0c9f70  A12     : 0x3fca0918  A13
+: 0x00000000
+A14     : 0x
+0000007b  A15     : 0x00000003  SAR     : 0x00000010  EXCCAUSE: 0x00000001
+EXCVADDR: 0x00000000  LBEG    : 0x400556d5  LEND    : 0x400556e5  LCOUNT  : 0xffff
+fff7
+Backtrace (decoded):
+  0x4037B7D4: 0x4037b7d4: _frxt_int_enter at /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/portasm.S:105
+  0x403790F1: 0x403790f1: _xt_lowint1 at /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/xtensa_vectors.S:1107
+  0x4037B7D1: 0x4037b7d1: _frxt_setup_switch at /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/portasm.S:79
+  0x403790EE: 0x403790ee: _xt_lowint1 at /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/xtensa_vectors.S:1099
+  0x40381B21: 0x40381b21: realloc at /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/newlib/heap.c:34
+  0x4207BD7F: 0x4207bd7f: ledcWrite at C:/Users/bezal/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-ledc.c:90
+ (inlined by) ledcWrite at C:/Users/bezal/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-ledc.c:82
+  0x4207BDF0: 0x4207bdf0: pinMatrixOutAttach at C:/Users/bezal/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-matrix.c:40
+  0x4207E094: 0x4207e094: _rmtCheckTXnotRX at C:/Users/bezal/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-rmt.c:268
+  0x4207E191: 0x4207e191: rmtInit at C:/Users/bezal/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-rmt.c:548
+  0x4201C4AD: 0x4201c4ad: int ArduinoJson::V742PB22::detail::Number::convertTo<int>() const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Numbers/parseNumber.hpp:71
+ (inlined by) int ArduinoJson::V742PB22::detail::parseNumber<int>(char const*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Numbers/parseNumber.hpp:235
+ (inlined by) int ArduinoJson::V742PB22::detail::VariantData::asIntegral<int>(ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:280
+  0x4202619A: 0x4202619a: ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::ResourceManager::saveString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Memory/ResourceManager.hpp:76
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantData::setString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantImpl.hpp:39
+ (inlined by) void ArduinoJson::V742PB22::detail::VariantData::setString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::VariantData*, ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:519
+ (inlined by) ArduinoJson::V742PB22::detail::enable_if<ArduinoJson::V742PB22::detail::IsString<String, void>::value, void>::type ArduinoJson::V742PB22::convertToJson<String>(String const&, ArduinoJson::V742PB22::JsonVariant) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/ConverterImpl.hpp:196
+ (inlined by) ArduinoJson::V742PB22::Converter<String, void>::toJson(String const&, ArduinoJson::V742PB22::JsonVariant) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/ConverterImpl.hpp:30
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::doSet<ArduinoJson::V742PB22::Converter<String, void>, String>(String const&, ArduinoJson::V742PB22::detail::integral_constant<bool, false>) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBaseImpl.hpp:139
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::doSet<ArduinoJson::V742PB22::Converter<String, void>, String>(String const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBase.hpp:298
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::set<String>(String const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBase.hpp:82
+ (inlined by) ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString>& ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString>::operator=<String>(String const&) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/MemberProxy.hpp:38
+ (inlined by) Messaging::MessageCore::publishExternal(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/system/MessageCore.cpp:189
+  0x420262B3: 0x420262b3: ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::StringPool::add<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::Allocator*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Memory/StringPool.hpp:46
+ (inlined by) ArduinoJson::V742PB22::detail::StringNode* ArduinoJson::V742PB22::detail::ResourceManager::saveString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Memory/ResourceManager.hpp:76
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantData::setString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantImpl.hpp:39
+ (inlined by) void ArduinoJson::V742PB22::detail::VariantData::setString<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::VariantData*, ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:519
+ (inlined by) ArduinoJson::V742PB22::detail::enable_if<ArduinoJson::V742PB22::detail::IsString<String, void>::value, void>::type ArduinoJson::V742PB22::convertToJson<String>(String const&, ArduinoJson::V742PB22::JsonVariant) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/ConverterImpl.hpp:196
+ (inlined by) ArduinoJson::V742PB22::Converter<String, void>::toJson(String const&, ArduinoJson::V742PB22::JsonVariant) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/ConverterImpl.hpp:30
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::doSet<ArduinoJson::V742PB22::Converter<String, void>, String>(String const&, ArduinoJson::V742PB22::detail::integral_constant<bool, false>) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBaseImpl.hpp:139
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::doSet<ArduinoJson::V742PB22::Converter<String, void>, String>(String const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBase.hpp:298
+ (inlined by) bool ArduinoJson::V742PB22::detail::VariantRefBase<ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString> >::set<String>(String const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantRefBase.hpp:82
+ (inlined by) ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString>& ArduinoJson::V742PB22::detail::MemberProxy<ArduinoJson::V742PB22::JsonObject, ArduinoJson::V742PB22::detail::RamString>::operator=<String>(String const&) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/MemberProxy.hpp:38
+ (inlined by) Messaging::MessageCore::publishExternal(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/system/MessageCore.cpp:189
+c9eea0 0x4202619a:0x3fc9eec0 0x420262b3:0x3fc9ef30 0x420262b3:0x3fc9efa0 0x420262b3:0x3fc9f010 0x420262b3:0x3fc9f080 0x420262b3:0x3fc9f0f0 0x420262b3:0x3fc9f160
+0x420262b3:0x3fc9f1d0 0x420262b
+3:0x3fc9f240 0x420262b3:0x3fc9f2b0 0x420262b3:0x3fc9f320 0x420262b3:0x3fc9f390 0x420262b3:0x3fc9f400 0x420262b3:0x3fc9f470 0x420262b3:0x3fc9f4e0 0x420262b3:0x3f

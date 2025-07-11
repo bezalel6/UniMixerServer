@@ -1,0 +1,38 @@
+ESP32-S3 Crash Decoded: 2025-07-11 07:28:08
+
+uru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+Core  1 reg
+ister dump:
+PC      : 0x4202039c  PS      : 0x00060b30  A0      : 0x820226d6  A1      : 0x3fca0780
+A2      : 0x00000000  A3      : 0x3fca0b1c  A4      : 0x3
+fca0b1c  A5      : 0x00000068
+A6      : 0x3c0c9acc  A7      : 0x00000000  A8      : 0x82020390  A9      : 0x3fca0760
+A10     : 0x00000004  A11     : 0x00000000  A12     : 0x3fcf7a00  A13
+: 0x00000000
+A14     : 0
+x00ff0000  A15     : 0xff000000  SAR     : 0x0000001e  EXCCAUSE: 0x0000001c
+EXCVADDR: 0x0000000a  LBEG    : 0x400556d5  LEND    : 0x400556e5  LCOUNT  : 0xfff
+ffffd
+Backtrace (decoded):
+  0x4202039C: 0x4202039c: ArduinoJson::V742PB22::detail::VariantData::next() const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:46
+ (inlined by) ArduinoJson::V742PB22::detail::CollectionIterator::CollectionIterator(ArduinoJson::V742PB22::detail::VariantData*, unsigned short) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Collection/CollectionImpl.hpp:17
+ (inlined by) ArduinoJson::V742PB22::detail::CollectionData::createIterator(ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Collection/CollectionImpl.hpp:30
+ (inlined by) ArduinoJson::V742PB22::detail::CollectionIterator ArduinoJson::V742PB22::detail::ObjectData::findKey<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectImpl.hpp:38
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::ObjectData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectImpl.hpp:16
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::ObjectData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::ObjectData const*, ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectData.hpp:30
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::VariantData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:332
+ (inlined by) ArduinoJson::V742PB22::JsonVariantConst ArduinoJson::V742PB22::JsonDocument::operator[]<char const*, 0>(char const* const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:214
+  0x42020399: 0x42020399: ArduinoJson::V742PB22::detail::CollectionIterator::CollectionIterator(ArduinoJson::V742PB22::detail::VariantData*, unsigned short) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Collection/CollectionImpl.hpp:17
+ (inlined by) ArduinoJson::V742PB22::detail::CollectionData::createIterator(ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Collection/CollectionImpl.hpp:30
+ (inlined by) ArduinoJson::V742PB22::detail::CollectionIterator ArduinoJson::V742PB22::detail::ObjectData::findKey<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectImpl.hpp:38
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::ObjectData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectImpl.hpp:16
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::ObjectData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::ObjectData const*, ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Object/ObjectData.hpp:30
+ (inlined by) ArduinoJson::V742PB22::detail::VariantData* ArduinoJson::V742PB22::detail::VariantData::getMember<ArduinoJson::V742PB22::detail::RamString>(ArduinoJson::V742PB22::detail::RamString, ArduinoJson::V742PB22::detail::ResourceManager const*) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Variant/VariantData.hpp:332
+ (inlined by) ArduinoJson::V742PB22::JsonVariantConst ArduinoJson::V742PB22::JsonDocument::operator[]<char const*, 0>(char const* const&) const at E:\SharedCo\UniMixerClient/.pio/libdeps/esp32-8048S070C-serial/ArduinoJson/src/ArduinoJson/Document/JsonDocument.hpp:214
+  0x420226D3: 0x420226d3: Messaging::MessageParser::parseAudioStatusData(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/protocol/MessageData.cpp:216
+  0x420237A2: 0x420237a2: Messaging::MessageConverter::externalToInternal(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/protocol/MessageData.cpp:405
+  0x420252B1: 0x420252b1: Messaging::MessageCore::handleExternalMessage(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/system/MessageCore.cpp:158
+  0x4202865F: 0x4202865f: Messaging::Core1::InterruptMessagingEngine::processExternalMessageOnCore1(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/transport/SerialEngine.cpp:565
+  0x42028725: 0x42028725: Messaging::Core1::InterruptMessagingEngine::processCore1Messages() at E:\SharedCo\UniMixerClient/src/messaging/transport/SerialEngine.cpp:309
+029b5b:0x3fca0b80
+ELF file SHA256: 6d54265ae92c223a

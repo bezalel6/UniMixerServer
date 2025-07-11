@@ -1,0 +1,16 @@
+ESP32-S3 Crash Decoded: 2025-07-11 06:52:01
+
+Raw Crash Data:
+Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+Core  1 register dump:
+PC      : 0x4202039
+PS      : 0x00060730  A0      : 0x820226d6  A1      : 0x3fca0780
+A2      : 0x00000000  A3      : 0x3fca0b1c  A4      : 0x3fca0b1c  A5      : 0x00000068
+A6      : 0x3c0c9acc  A7      : 0x00000000  A8      : 0x82020390  A9      : 0x3fca0760
+Backtrace: 0x4202039:0x3fca0780 0x420226d3:0x3fca0810 0x420237a2:0x3fca09b0
+ELF file SHA256: 6d54265ae92c223a
+
+
+Decoded Stack Trace:
+0x420226D3: Messaging::MessageParser::parseAudioStatusData(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/protocol/MessageData.cpp:216
+0x420237A2: Messaging::MessageConverter::externalToInternal(Messaging::ExternalMessage const&) at E:\SharedCo\UniMixerClient/src/messaging/protocol/MessageData.cpp:405
