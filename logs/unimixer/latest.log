@@ -1,0 +1,20 @@
+2025-07-11 09:34:18.791 +03:00 [INF] Found ESP32-S3 toolchain at: C:\Espressif\tools\riscv32-esp-elf\esp-14.2.0_20241119
+2025-07-11 09:34:18.865 +03:00 [INF] UniMixer Service starting...
+2025-07-11 09:34:18.867 +03:00 [INF] Starting communication handler: Serial
+2025-07-11 09:34:18.870 +03:00 [INF] Starting Serial handler on port COM17...
+2025-07-11 09:34:18.879 +03:00 [INF] Serial handler started successfully on COM17
+2025-07-11 09:34:18.899 +03:00 [INF] Started timers - Status: 60000ms, Audio Refresh: 30000ms
+2025-07-11 09:34:18.903 +03:00 [INF] UniMixer Service started successfully
+2025-07-11 09:34:18.905 +03:00 [INF] Sending initial status broadcast...
+2025-07-11 09:34:18.912 +03:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-07-11 09:34:18.913 +03:00 [INF] Hosting environment: Production
+2025-07-11 09:34:18.915 +03:00 [INF] Content root path: E:\SharedCo\UniMixerServer
+2025-07-11 09:34:19.014 +03:00 [INF] Broadcasting status for 1 sessions (Reason: ServiceStartup):
+2025-07-11 09:34:19.021 +03:00 [INF]   Session: chrome (PID: 22948) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-11 09:34:19.260 +03:00 [FTL] ESP32-S3 PANIC DETECTED: uru Meditation Error: Core  1 panic'ed (Unhandled debug exception).
+2025-07-11 09:34:19.261 +03:00 [FTL] HALTING ALL NORMAL PROCESSING - ESP32-S3 CRASH DETECTED
+2025-07-11 09:34:19.353 +03:00 [FTL] ESP32-S3 CRASH DETECTED
+2025-07-11 09:34:19.367 +03:00 [INF] Found 18 addresses in crash data
+2025-07-11 09:34:26.010 +03:00 [INF] Successfully decoded 15 addresses
+2025-07-11 09:34:26.012 +03:00 [INF] ShowCrashWithDecodedTrace called with 15 decoded lines
+2025-07-11 09:34:26.022 +03:00 [WRN] No backtrace line found in crash data, showing decoded addresses anyway
