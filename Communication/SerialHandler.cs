@@ -165,11 +165,13 @@ namespace UniMixerServer.Communication {
                 _logger.LogDebug("Sending status: {SessionCount} sessions, {Length} chars", status.Sessions.Count, json.Length);
 
                 // Log outgoing data
-                OutgoingDataLogger.LogOutgoingData(json, "Serial");
 
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
                     var binaryFrame = _binaryMessageProcessor.EncodeMessage(json);
+                    var asciiDebug = Encoding.ASCII.GetString(binaryFrame);
+
+                    OutgoingDataLogger.LogOutgoingData(asciiDebug, "Serial");
                     await Task.Run(() => _serialPort!.Write(binaryFrame, 0, binaryFrame.Length), cancellationToken);
                 }
                 else {
