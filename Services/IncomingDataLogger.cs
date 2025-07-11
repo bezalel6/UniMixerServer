@@ -54,7 +54,7 @@ namespace UniMixerServer.Services {
             }
         }
 
-        /// <summary>
+        /// <summary>           
         /// Log incoming data with source information
         /// </summary>
         /// <param name="data">The incoming data</param>
@@ -78,6 +78,47 @@ namespace UniMixerServer.Services {
             _logger = null;
             _latestLogger = null;
             _isEnabled = false;
+        }
+
+        /// <summary>
+        /// Clear the latest.log file by disposing and recreating the latest logger
+        /// </summary>
+        public static void ClearLatestLog() {
+            if (!_isEnabled) return;
+
+            try {
+                // Dispose the latest logger to flush any pending writes
+                _latestLogger?.Dispose();
+                
+                // Clear the file
+                var latestLogPath = Path.Combine(_logDirectory, "latest.log");
+                if (File.Exists(latestLogPath)) {
+                    File.WriteAllText(latestLogPath, string.Empty);
+                }
+
+                // Recreate the latest logger
+                _latestLogger = new LoggerConfiguration()
+                    .WriteTo.File(
+                        latestLogPath,
+                        rollingInterval: RollingInterval.Infinite,
+                        fileSizeLimitBytes: 50 * 1024 * 1024, // Default 50MB
+                        rollOnFileSizeLimit: true,
+                        retainedFileCountLimit: 1,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Source}] {Message}{NewLine}")
+                    .CreateLogger();
+            }
+            catch (Exception) {
+                // If clearing fails, just recreate the logger
+                _latestLogger = new LoggerConfiguration()
+                    .WriteTo.File(
+                        Path.Combine(_logDirectory, "latest.log"),
+                        rollingInterval: RollingInterval.Infinite,
+                        fileSizeLimitBytes: 50 * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        retainedFileCountLimit: 1,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Source}] {Message}{NewLine}")
+                    .CreateLogger();
+            }
         }
     }
 }

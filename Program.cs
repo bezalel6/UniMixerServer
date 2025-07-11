@@ -41,6 +41,12 @@ namespace UniMixerServer {
                 return;
             }
 
+            // Check if we should test exception decoder
+            if (args.Length > 0 && args[0].Equals("--test-decoder", StringComparison.OrdinalIgnoreCase)) {
+                await TestExceptionDecoder.RunTest();
+                return;
+            }
+
             // Load .env file for credentials
             EnvLoader.Load();
 
@@ -106,6 +112,9 @@ namespace UniMixerServer {
                         return new AssetService(logger, iconExtractor);
                     });
 
+                    // Register ESP exception decoder
+                    services.AddSingleton<EspExceptionDecoder>();
+
                     // Register message processors for O(1) lookup (simplified, no centralized logging service)
                     services.AddSingleton<JsonMessageProcessor>();
                     services.AddSingleton<BinaryMessageProcessor>();
@@ -124,7 +133,8 @@ namespace UniMixerServer {
                             new SerialHandler(
                                 provider.GetRequiredService<ILogger<SerialHandler>>(),
                                 appConfig.Serial,
-                                provider.GetRequiredService<BinaryMessageProcessor>()));
+                                provider.GetRequiredService<BinaryMessageProcessor>(),
+                                provider.GetRequiredService<EspExceptionDecoder>()));
                     }
 
                     // Register main service
@@ -192,7 +202,7 @@ namespace UniMixerServer {
                 // Print final configuration after all cascading initialization
                 var finalConfig = host.Services.GetRequiredService<AppConfig>();
 
-                // Clear latest.log files for new session
+                // Clear latest.log files for new session (dispose existing loggers first)
                 ClearLatestLogFiles(finalConfig.Logging);
 
                 // Initialize configurable data loggers
@@ -421,6 +431,15 @@ namespace UniMixerServer {
 
         private static void ClearLatestLogFiles(LoggingConfig loggingConfig) {
             Console.WriteLine("Clearing latest.log files for new session...");
+
+            // First, dispose any existing loggers to flush pending writes and release file handles
+            Console.WriteLine("Disposing existing loggers...");
+            IncomingDataLogger.Dispose();
+            OutgoingDataLogger.Dispose();
+            BinaryDataLogger.Dispose();
+
+            // Give a small delay to ensure file handles are fully released
+            System.Threading.Thread.Sleep(100);
 
             // List of latest.log files to clear
             var latestLogPaths = new List<string>();

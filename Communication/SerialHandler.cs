@@ -29,14 +29,18 @@ namespace UniMixerServer.Communication {
         private bool _protocolDetected;
         private readonly StringBuilder _textBuffer = new StringBuilder();
 
+        // Exception decoder
+        private readonly EspExceptionDecoder _exceptionDecoder;
+
         public override string Name => "Serial";
         public override bool IsConnected => _serialPort?.IsOpen ?? false;
 
-        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, BinaryMessageProcessor binaryMessageProcessor)
+        public SerialHandler(ILogger<SerialHandler> logger, SerialConfig config, BinaryMessageProcessor binaryMessageProcessor, EspExceptionDecoder exceptionDecoder)
             : base(logger, binaryMessageProcessor) {
             _config = config;
             _useBinaryProtocol = config.BinaryProtocol.EnableBinaryProtocol;
             _binaryMessageProcessor = binaryMessageProcessor;
+            _exceptionDecoder = exceptionDecoder;
         }
 
 
@@ -250,6 +254,13 @@ namespace UniMixerServer.Communication {
                             // Log raw binary data as ASCII for debugging
                             BinaryDataLogger.LogBinaryData(readBytes, "Serial");
 
+                            // Check for ESP32 crashes in binary data (convert to string first)
+                            var dataString = Encoding.UTF8.GetString(readBytes);
+                            if (_exceptionDecoder.ProcessSerialData(dataString)) {
+                                // A crash was detected and decoded, the decoder will handle exiting
+                                return;
+                            }
+
                             // Process binary data through the message processor's binary method
                             await _binaryMessageProcessor!.ProcessBinaryAsync(readBytes, "Serial");
 
@@ -296,6 +307,12 @@ namespace UniMixerServer.Communication {
                         _textBuffer.Append(data);
 
                         var content = _textBuffer.ToString();
+
+                        // Check for ESP32 crashes before processing regular messages
+                        if (_exceptionDecoder.ProcessSerialData(data)) {
+                            // A crash was detected and decoded, the decoder will handle exiting
+                            return;
+                        }
 
                         // Process ESP32 custom format: ~prefix{JSON}]
                         await ProcessEsp32CustomFormat(content);
