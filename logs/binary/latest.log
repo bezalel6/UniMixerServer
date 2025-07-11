@@ -1,4 +1,1 @@
-=== NEW SESSION STARTED: 2025-07-11 09:34:18.881 - Serial Port COM17 ===[107796][W][MessageData.cpp:231] parseExternalMessage(): [MessageParser] Got payload: {"messageType":1,"deviceId":"THINKINATOR","timestamp":1752215659033,"activeSessionCount":1,"sessions":[{"processId":22948,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Speakers (Stealth 700X Gen 3)","volume":0.88,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"ServiceStartup","originatingRequestId":null,"originatingDeviceId":null}
-[107834][W][MessageCore.cpp:448] logExternalMessage(): [MessageCore] [IN-EXT] 1 (device: THINKINATOR)
-[107840][W][MessageCore.cpp:452] logExternalMessage(): [MessageCore] Serializing external message
-G
+
