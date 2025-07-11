@@ -9,7 +9,7 @@ using UniMixerServer.Services;
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
     /// Binary protocol message processor - handles binary frame decoding then delegates JSON parsing to shared utility
-    /// Simplified to eliminate logic duplication with JsonMessageProcessor
+    /// Clean implementation focused only on binary protocol processing
     /// </summary>
     public class BinaryMessageProcessor : IMessageProcessor {
         private readonly ILogger<BinaryMessageProcessor> _logger;
@@ -48,26 +48,40 @@ namespace UniMixerServer.Communication.MessageProcessing {
 
         /// <summary>
         /// Process binary data: decode frames, then parse JSON using shared utility
+        /// Clean binary protocol processing only - no exception detection
         /// </summary>
         public async Task ProcessBinaryAsync(byte[] binaryData, string sourceInfo) {
             if (binaryData == null || binaryData.Length == 0) {
                 return;
             }
 
+            _logger.LogTrace("🔍 Processing {Length} bytes from {Source}", binaryData.Length, sourceInfo);
+
             try {
-                // Step 1: Decode binary frames to JSON messages
+                // Decode binary frames to JSON messages
                 var decodedMessages = _framer.ProcessIncomingBytes(binaryData);
                 
                 _logger.LogDebug("Decoded {Count} messages from {Length} bytes via binary protocol", 
                     decodedMessages.Count, binaryData.Length);
 
-                // Step 2: Process each JSON message using shared parser (eliminates duplication)
+                // Process each JSON message using shared parser
                 foreach (var jsonMessage in decodedMessages) {
                     // Log the decoded message
                     IncomingDataLogger.LogIncomingData(jsonMessage, sourceInfo);
                     
                     // Use shared parser to handle JSON parsing and dispatch
                     await JsonMessageParser.ParseAndDispatchAsync(jsonMessage, sourceInfo, _handlers, _logger);
+                }
+
+                // Check for protocol-level issues that might indicate instability
+                if (_statistics.CrcErrors > 0 || _statistics.FramingErrors > 0 || _statistics.TimeoutErrors > 0) {
+                    var errorRate = (double)(_statistics.CrcErrors + _statistics.FramingErrors + _statistics.TimeoutErrors) / 
+                                   Math.Max(1, _statistics.MessagesReceived + _statistics.CrcErrors + _statistics.FramingErrors);
+                    
+                    if (errorRate > 0.5) { // More than 50% error rate
+                        _logger.LogWarning("High binary protocol error rate ({ErrorRate:P}) detected from {Source} - possible instability", 
+                            errorRate, sourceInfo);
+                    }
                 }
             }
             catch (Exception ex) {

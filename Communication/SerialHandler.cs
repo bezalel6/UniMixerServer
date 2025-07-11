@@ -151,6 +151,12 @@ namespace UniMixerServer.Communication {
                 return;
             }
 
+            // Don't send messages if crash detection is active
+            if (_exceptionDecoder.IsCrashDetectionActive) {
+                _logger.LogDebug("Crash detection is active, not sending status message");
+                return;
+            }
+
             try {
                 var json = JsonSerializer.Serialize(status, new JsonSerializerOptions {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -182,6 +188,12 @@ namespace UniMixerServer.Communication {
         public override async Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default) {
             if (!IsConnected) {
                 _logger.LogWarning("Cannot send asset - serial port not connected");
+                return;
+            }
+
+            // Don't send messages if crash detection is active
+            if (_exceptionDecoder.IsCrashDetectionActive) {
+                _logger.LogDebug("Crash detection is active, not sending asset");
                 return;
             }
 
@@ -242,7 +254,7 @@ namespace UniMixerServer.Communication {
             while (!cancellationToken.IsCancellationRequested && IsConnected) {
                 try {
                     if (_serialPort!.BytesToRead > 0) {
-                        // Read available bytes
+                        // ALWAYS read available bytes - crash detection needs data to complete
                         var availableBytes = _serialPort.BytesToRead;
                         var buffer = new byte[availableBytes];
                         var bytesRead = _serialPort.Read(buffer, 0, availableBytes);
@@ -251,17 +263,36 @@ namespace UniMixerServer.Communication {
                             var readBytes = new byte[bytesRead];
                             Array.Copy(buffer, readBytes, bytesRead);
 
-                            // Log raw binary data as ASCII for debugging
-                            BinaryDataLogger.LogBinaryData(readBytes, "Serial");
+                            _logger.LogTrace("🔍 SerialHandler read {Length} bytes", bytesRead);
 
-                            // Check for ESP32 crashes in binary data (convert to string first)
-                            var dataString = Encoding.UTF8.GetString(readBytes);
-                            if (_exceptionDecoder.ProcessSerialData(dataString)) {
-                                // A crash was detected and decoded, the decoder will handle exiting
-                                return;
+                            // SINGLE POINT OF EXCEPTION DETECTION
+                            // ALWAYS check raw serial data for ESP32 crashes - this feeds ongoing crash detection
+                            try {
+                                var rawString = System.Text.Encoding.UTF8.GetString(readBytes);
+                                _logger.LogTrace("🔍 Feeding data to ESP32 crash detector");
+                                
+                                if (_exceptionDecoder.ProcessSerialData(rawString)) {
+                                    _logger.LogCritical("🚨 ESP32 CRASH PROCESSING COMPLETED - SerialHandler exiting");
+                                    
+                                    return; // Crash processing completed, exception decoder will handle exit
+                                }
+                            }
+                            catch (Exception ex) {
+                                _logger.LogTrace(ex, "Failed to check raw serial data for crashes");
                             }
 
-                            // Process binary data through the message processor's binary method
+                            // If crash detection is active, DON'T pass to binary processor
+                            // Just continue feeding data to the crash detector
+                            if (_exceptionDecoder.IsCrashDetectionActive) {
+                                _logger.LogTrace("🔍 Crash detection active, skipping binary processing, continuing data feed");
+                                continue; // Skip binary processing, keep feeding crash detector
+                            }
+
+                            // Log raw binary data for debugging
+                            BinaryDataLogger.LogBinaryData(readBytes, "Serial");
+
+                            // CLEAN DATA ONLY: Pass to binary processor for normal protocol handling
+                            _logger.LogTrace("🔍 No crash detected, passing clean data to BinaryMessageProcessor");
                             await _binaryMessageProcessor!.ProcessBinaryAsync(readBytes, "Serial");
 
                             // Handle protocol auto-detection on first successful decode

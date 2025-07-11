@@ -1,432 +1,110 @@
-# UniMixer Server
+# UniMixerServer
 
-A Windows audio control bridge system that enables remote control of Windows application audio levels through MQTT messaging or serial communication.
-
-## Overview
-
-UniMixer Server acts as a middleware service that translates network commands into Windows system audio control actions. It allows you to remotely control the volume of specific Windows applications (like media players, games, browsers) through standardized messaging protocols.
+A C# server application for handling ESP32-S3 communication via serial and MQTT protocols, with built-in exception decoding capabilities.
 
 ## Features
 
-### 🎵 Audio Management
+- **ESP32-S3 Support**: Modern RISC-V architecture support with proper exception decoding
+- **Serial Communication**: Direct serial port communication with binary protocol support
+- **MQTT Communication**: Publish/subscribe messaging with binary and JSON protocols
+- **Exception Decoding**: Automatic crash detection and decoding for ESP32-S3 firmware
+- **Binary Protocol**: Efficient binary message format with CRC16 validation
+- **Logging**: Comprehensive logging with different levels and file rotation
 
-- **Real-time Audio Session Monitoring**: Continuously monitors volume levels of running Windows applications
-- **Individual App Control**: Set specific volume levels for individual applications
-- **Mute/Unmute Control**: Toggle mute state for specific applications
-- **Status Broadcasting**: Periodically broadcasts current audio status
+## ESP32-S3 Exception Decoding
 
-### 🌐 Multi-Protocol Communication
+The application includes a modern ESP32-S3 exception decoder that automatically detects and decodes crashes from your ESP32-S3 firmware.
 
-- **MQTT Protocol**: Home Assistant-compatible topic structure for network-based automation
-- **Serial Communication**: Direct serial port communication for embedded systems
-- **Extensible Architecture**: Easy to add new communication protocols
+### Features
 
-### ⚙️ Configuration & Deployment
+- **Automatic Detection**: Detects Guru Meditation errors, panics, and access faults
+- **RISC-V Support**: Properly handles ESP32-S3's RISC-V architecture
+- **Modern Toolchain**: Uses ESP-IDF's `riscv32-esp-elf-addr2line` for accurate decoding
+- **Manual Analysis**: Provides detailed crash analysis even without toolchain
+- **Crash Logging**: Saves decoded crashes to debug_files/ directory
 
-- **JSON Configuration**: External configuration file for all settings
-- **Windows Service Support**: Runs as a proper Windows background service
-- **Structured Logging**: Comprehensive logging with Serilog
-- **Auto-Reconnection**: Automatic reconnection for communication failures
+### Setup
 
-## Quick Start
+1. **Install ESP-IDF**: Download and install ESP-IDF v5.x with ESP32-S3 support
+2. **ELF File**: Place your firmware.elf file in the `debug_files/` directory
+3. **Toolchain**: The decoder will automatically find your ESP-IDF toolchain
 
-### Prerequisites
+### Supported Toolchain Paths
 
-- Windows 10/11
-- .NET 8.0 Runtime
-- Administrator privileges (required for audio session control)
+The decoder automatically searches for toolchains in these locations:
+- `~/.espressif/tools/riscv32-esp-elf/` (ESP-IDF v5.x default)
+- `~/.platformio/packages/toolchain-riscv32-esp/` (PlatformIO)
+- `C:\Program Files\Espressif\tools\riscv32-esp-elf\` (System installation)
+- `C:\esp\esp-idf\tools\riscv32-esp-elf\` (Manual installation)
 
-### Installation
+### Usage
 
-1. **Download/Clone the project**
-2. **Build the application**:
-   ```bash
-   dotnet build -c Release
-   ```
-3. **Run the application**:
-   ```bash
-   dotnet run
-   ```
+The exception decoder runs automatically when the application detects crash patterns in the serial data. When a crash is detected:
 
-### Configuration
+1. **Automatic Capture**: The decoder captures the complete crash dump
+2. **Address Extraction**: Extracts MEPC, RA, and backtrace addresses
+3. **Symbol Decoding**: Uses addr2line to decode addresses to function names and line numbers
+4. **Manual Analysis**: Provides RISC-V register analysis and crash cause description
+5. **File Logging**: Saves the decoded crash to a timestamped file
 
-Edit `appsettings.json` to configure the application:
-
-```json
-{
-  "DeviceId": "MyPC",
-  "StatusBroadcastIntervalMs": 5000,
-  "EnableMqtt": true,
-  "EnableSerial": true,
-  "Mqtt": {
-    "BrokerHost": "192.168.1.100",
-    "BrokerPort": 1883,
-    "Username": "your_username",
-    "Password": "your_password"
-  },
-  "Serial": {
-    "PortName": "COM8",
-    "BaudRate": 115200
-  }
-}
-```
-
-## Architecture
-
-### Core Components
-
-- **AudioManager**: Handles Windows Core Audio API interactions
-- **Communication Handlers**: Abstract protocol implementations (MQTT, Serial)
-- **UniMixerService**: Main orchestration service
-- **Configuration System**: JSON-based configuration management
-
-### File Structure
+### Example Output
 
 ```
-UniMixerServer/
-├── Core/                    # Audio management core
-│   ├── IAudioManager.cs     # Audio interface
-│   ├── AudioManager.cs      # Core Audio API implementation
-│   └── AudioSession.cs      # Audio session model
-├── Communication/           # Protocol implementations
-│   ├── ICommunicationHandler.cs  # Communication interface
-│   ├── MqttHandler.cs            # MQTT implementation
-│   └── SerialHandler.cs          # Serial implementation
-├── Configuration/           # Configuration management
-│   └── AppConfig.cs         # Configuration models
-├── Models/                  # Data structures
-│   └── AudioCommand.cs      # Command/response models
-├── Services/               # Main service logic
-│   └── UniMixerService.cs  # Service orchestration
-└── Program.cs              # Application entry point
+🚨 ESP32-S3 CRASH DECODED SUCCESSFULLY:
+=====================================
+0x420A5D78: app_main at /path/to/src/main.cpp:123
+0x42053CF4: main_task at /path/to/esp-idf/components/freertos/app_startup.c:208
+0x40384538: vPortTaskWrapper at /path/to/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:234
+=====================================
 ```
 
-## MQTT Integration
+### Manual Decoding
 
-### Topics Structure (Home Assistant Compatible)
+If you need to manually decode a crash file:
 
-- **Status Topic**: `homeassistant/unimix/audio_status`
-  - Broadcasts current audio session status
-- **Command Topic**: `homeassistant/unimix/audio/requests`
-  - Receives control commands
-- **Response Topic**: `homeassistant/unimix/audio/responses`
-  - Sends command execution results
+```bash
+# Using ESP-IDF directly
+riscv32-esp-elf-addr2line -pfiaC -e firmware.elf 0x420A5D78
 
-### MQTT Message Examples
-
-**Status Message**:
-
-```json
-{
-  "deviceId": "MyPC",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "activeSessionCount": 3,
-  "sessions": [
-    {
-      "processId": 1234,
-      "processName": "chrome",
-      "displayName": "Google Chrome",
-      "volume": 0.75,
-      "isMuted": false,
-      "state": "Active"
-    }
-  ]
-}
+# Using idf.py monitor (automatically decodes crashes)
+idf.py monitor
 ```
 
-**Volume Control Command**:
+### Troubleshooting
 
-```json
-{
-  "commandType": "SetVolume",
-  "processId": 1234,
-  "volume": 0.5,
-  "requestId": "abc123"
-}
-```
+- **No Toolchain Found**: Install ESP-IDF with ESP32-S3 support
+- **ELF File Missing**: Ensure firmware.elf is in debug_files/ directory
+- **Decoding Fails**: Check that ELF file matches the crashed firmware version
 
-**Mute Command**:
+## Configuration
 
-```json
-{
-  "commandType": "Mute",
-  "processId": 1234,
-  "requestId": "def456"
-}
-```
+The application uses `appsettings.json` for configuration. Key settings include:
 
-## Serial Communication
-
-### Protocol Format
-
-Commands are sent with prefix `CMD:` followed by JSON:
-
-```
-CMD:{"commandType":"SetVolume","processId":1234,"volume":0.5}
-```
-
-Status messages are sent with prefix `STATUS:`:
-
-```
-STATUS:{"deviceId":"MyPC","sessions":[...]}
-```
-
-Results are sent with prefix `RESULT:`:
-
-```
-RESULT:{"success":true,"message":"Volume set successfully"}
-```
-
-## Home Assistant Integration
-
-### MQTT Discovery Configuration
-
-Add to your Home Assistant configuration:
-
-```yaml
-mqtt:
-  sensor:
-    - name: "PC Audio Sessions"
-      state_topic: "homeassistant/unimix/audio_status"
-      value_template: "{{ value_json.activeSessionCount }}"
-      json_attributes_topic: "homeassistant/unimix/audio_status"
-
-  switch:
-    - name: "Chrome Audio"
-      command_topic: "homeassistant/unimix/audio/requests"
-      payload_on: '{"commandType":"Unmute","processId":1234}'
-      payload_off: '{"commandType":"Mute","processId":1234}'
-```
-
-## Advanced Usage
-
-### Running as Windows Service
-
-1. **Install as service**:
-
-   ```bash
-   sc create UniMixerServer binPath="C:\path\to\UniMixerServer.exe"
-   ```
-
-2. **Start the service**:
-   ```bash
-   sc start UniMixerServer
-   ```
-
-### Custom Communication Protocols
-
-Implement `ICommunicationHandler` to add new protocols:
-
-```csharp
-public class MyCustomHandler : ICommunicationHandler
-{
-    public string Name => "MyProtocol";
-    public bool IsConnected { get; private set; }
-
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        // Your implementation
-    }
-
-    // ... implement other interface methods
-}
-```
-
-### Arduino/ESP32 Integration
-
-Example Arduino code for serial communication:
-
-```cpp
-void setVolume(int processId, float volume) {
-    Serial.print("CMD:");
-    Serial.print("{\"commandType\":\"SetVolume\",\"processId\":");
-    Serial.print(processId);
-    Serial.print(",\"volume\":");
-    Serial.print(volume);
-    Serial.println("}");
-}
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"Access Denied" errors**: Run as Administrator
-2. **No audio sessions found**: Ensure applications are playing audio
-3. **MQTT connection fails**: Check broker settings and network connectivity
-4. **Serial port errors**: Verify COM port availability and permissions
-
-### Logging
-
-Logs are written to:
-
-- Console (when enabled)
-- File: `logs/unimixer-YYYYMMDD-.log`
-
-Adjust log levels in `appsettings.json`:
-
-```json
-{
-  "Logging": {
-    "LogLevel": "Debug" // Information, Debug, Warning, Error
-  }
-}
-```
+- Serial port settings (baud rate, timeout, etc.)
+- MQTT broker configuration
+- Logging levels and file paths
+- Protocol settings
 
 ## Development
 
-### Building from Source
+### Prerequisites
+
+- .NET 8.0 SDK
+- ESP-IDF v5.x (for exception decoding)
+- Visual Studio or VS Code
+
+### Building
 
 ```bash
-git clone <repository-url>
-cd UniMixerServer
-dotnet restore
 dotnet build
 ```
 
-### Running Tests
+### Running
 
 ```bash
-dotnet test
+dotnet run
 ```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For issues and questions:
-
-- Create an issue on GitHub
-- Check the troubleshooting section
-- Review the logs for error details
-
----
-
-**Note**: This application requires administrator privileges to interact with Windows audio sessions. Always run with elevated permissions for full functionality.
-
-## Dependencies
-
-### LVGL Image Converter Setup
-
-This application uses the official LVGL image converter for proper LVGL 9 binary format generation.
-
-#### Installation Steps:
-
-1. **Install Node.js** (if not already installed):
-   - Download from: https://nodejs.org/
-   - Or use package manager: `winget install OpenJS.NodeJS`
-
-2. **Install TypeScript and ts-node globally**:
-   ```bash
-   npm install -g typescript ts-node
-   ```
-
-3. **Clone the official LVGL image converter**:
-   ```bash
-   git clone https://github.com/lvgl/lv_img_conv.git
-   cd lv_img_conv
-   npm install
-   ```
-
-4. **Place the converter in one of these locations**:
-   - `./tools/lv_img_conv/` (relative to UniMixerServer.exe)
-   - `./lv_img_conv/` (relative to UniMixerServer.exe)
-   - `C:\tools\lv_img_conv\` (Windows)
-   - `/usr/local/bin/lv_img_conv` (Linux)
-
-5. **Verify installation**:
-   ```bash
-   ts-node cli.ts --help
-   ```
-
-#### Alternative: Quick Setup Script
-
-For Windows PowerShell:
-```powershell
-# Install global dependencies
-npm install -g typescript ts-node
-
-# Navigate to your UniMixerServer directory
-mkdir tools
-cd tools
-git clone https://github.com/lvgl/lv_img_conv.git
-cd lv_img_conv
-npm install
-
-# Test the installation
-ts-node cli.ts --help
-
-cd ../..
-```
-
-For Linux/macOS:
-```bash
-# Install global dependencies
-npm install -g typescript ts-node
-
-# Navigate to your UniMixerServer directory
-mkdir -p tools
-cd tools
-git clone https://github.com/lvgl/lv_img_conv.git
-cd lv_img_conv
-npm install
-
-# Test the installation
-ts-node cli.ts --help
-
-cd ../..
-```
-
-#### Usage Example
-The converter will be called automatically with commands like:
-```bash
-ts-node cli.ts input.png -f -c CF_TRUE_COLOR_ALPHA -t bin --binary-format 565
-```
-
-The application will automatically detect the converter and use it for generating proper LVGL 9 binary images.
-
-#### Troubleshooting
-
-**Error: "The system cannot find the file specified" for 'ts-node'**
-
-This means ts-node is not installed or not in your system PATH. To fix:
-
-1. **Install/reinstall global dependencies**:
-   ```bash
-   npm install -g typescript ts-node
-   ```
-
-2. **Verify installation**:
-   ```bash
-   ts-node --version
-   node --version
-   ```
-
-3. **Check PATH** - Make sure npm's global bin directory is in your PATH:
-   - Windows: Usually `%APPDATA%\npm` or `%USERPROFILE%\AppData\Roaming\npm`
-   - Linux/macOS: Usually `/usr/local/bin` or `~/.npm-global/bin`
-
-4. **Restart your terminal/IDE** after installing global packages
-
-**Error: "No such file or directory" for converter path**
-
-Make sure the LVGL converter is in one of the expected locations with the correct structure:
-```
-tools/lv_img_conv/lib/
-├── cli.ts
-├── lv_img_conv.js (optional, for fallback)
-└── ... other files
-```
-
-**Alternative: Use pre-compiled version**
-
-If you continue having issues with ts-node, the application will automatically fall back to using `node lv_img_conv.js` if available.
+This project is licensed under the MIT License.
