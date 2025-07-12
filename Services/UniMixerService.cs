@@ -134,6 +134,7 @@ namespace UniMixerServer.Services {
                 handler.StatusUpdateReceived += OnStatusUpdateReceived;
                 handler.StatusRequestReceived += OnStatusRequestReceived;
                 handler.AssetRequestReceived += OnAssetRequestReceived;
+                handler.SetVolumeRequestReceived += OnSetVolumeRequestReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
 
@@ -431,6 +432,47 @@ namespace UniMixerServer.Services {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing asset request");
+            }
+        }
+
+        private async void OnSetVolumeRequestReceived(object? sender, SetVolumeRequestReceivedEventArgs e) {
+            try {
+                var request = e.SetVolumeRequest;
+                var targetDescription = string.IsNullOrEmpty(request.ProcessName) 
+                    ? "default device" 
+                    : $"process '{request.ProcessName}'";
+                
+                _logger.LogInformation("Processing set volume request from {Source} - {Volume}% -> {Target} (RequestId: {RequestId})",
+                    e.Source, request.Volume, targetDescription, request.RequestId);
+
+                bool success = false;
+                
+                // Convert volume from percentage (0-100) to float (0.0-1.0)
+                float volumeFloat = Math.Max(0.0f, Math.Min(1.0f, request.Volume / 100.0f));
+
+                if (string.IsNullOrEmpty(request.ProcessName)) {
+                    // Set default device volume
+                    success = await _audioManager.SetDefaultDeviceVolumeAsync(volumeFloat);
+                    _logger.LogInformation("Set default device volume to {Volume:P1}: {Success}", 
+                        volumeFloat, success ? "Success" : "Failed");
+                }
+                else {
+                    // Set process volume by name
+                    success = await _audioManager.SetProcessVolumeByNameAsync(request.ProcessName, volumeFloat);
+                    _logger.LogInformation("Set volume for process '{ProcessName}' to {Volume:P1}: {Success}", 
+                        request.ProcessName, volumeFloat, success ? "Success" : "Failed");
+                }
+
+                if (success) {
+                    // Broadcast updated status after successful volume change
+                    await BroadcastStatusAsync(StatusBroadcastReason.UpdateResponse, request.RequestId, request.DeviceId);
+                }
+                else {
+                    _logger.LogWarning("Failed to set volume for {Target}", targetDescription);
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing set volume request");
             }
         }
     }

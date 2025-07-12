@@ -24,6 +24,16 @@ namespace UniMixerServer.Models {
         public string ProcessName { get; set; } = string.Empty;
     }
 
+    public class SetVolumeRequest {
+        public string MessageType { get; set; } = MessageTypes.SET_VOLUME;
+        public string RequestId { get; set; } = string.Empty;
+        public string DeviceId { get; set; } = string.Empty;
+        public long Timestamp { get; set; }
+        public string ProcessName { get; set; } = string.Empty;
+        public float Volume { get; set; }
+        public string Target { get; set; } = string.Empty;
+    }
+
     public class SessionUpdate {
         public string MessageType { get; set; } = MessageTypes.SESSION_UPDATE;
         public string ProcessName { get; set; } = string.Empty;

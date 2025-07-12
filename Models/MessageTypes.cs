@@ -32,5 +32,10 @@ namespace UniMixerServer.Models {
         /// Individual session update (used within StatusUpdate)
         /// </summary>
         public const string SESSION_UPDATE = "SESSION_UPDATE";
+
+        /// <summary>
+        /// Command to set volume for a process or default device
+        /// </summary>
+        public const string SET_VOLUME = "SET_VOLUME";
     }
 } 

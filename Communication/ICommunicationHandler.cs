@@ -61,6 +61,11 @@ namespace UniMixerServer.Communication {
         event EventHandler<AssetRequestReceivedEventArgs>? AssetRequestReceived;
 
         /// <summary>
+        /// Event fired when a set volume request is received
+        /// </summary>
+        event EventHandler<SetVolumeRequestReceivedEventArgs>? SetVolumeRequestReceived;
+
+        /// <summary>
         /// Event fired when connection status changes
         /// </summary>
         event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
@@ -80,6 +85,12 @@ namespace UniMixerServer.Communication {
 
     public class AssetRequestReceivedEventArgs : EventArgs {
         public AssetRequest AssetRequest { get; set; } = new AssetRequest();
+        public string Source { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    public class SetVolumeRequestReceivedEventArgs : EventArgs {
+        public SetVolumeRequest SetVolumeRequest { get; set; } = new SetVolumeRequest();
         public string Source { get; set; } = string.Empty;
         public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
