@@ -242,7 +242,7 @@ namespace UniMixerServer.Services {
                 var defaultDevice = await GetDefaultAudioDeviceInfoAsync();
 
                 var statusMessage = new StatusMessage {
-                    MessageType = MessageType.STATUS_MESSAGE,
+                    MessageType = MessageTypes.STATUS_MESSAGE,
                     DeviceId = Environment.MachineName,
                     Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     ActiveSessionCount = validSessions.Count,

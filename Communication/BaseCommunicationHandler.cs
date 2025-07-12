@@ -32,10 +32,10 @@ namespace UniMixerServer.Communication {
         }
 
         private void RegisterMessageHandlers() {
-            _messageProcessor.RegisterHandler(MessageType.STATUS_UPDATE, HandleStatusUpdateAsync);
-            _messageProcessor.RegisterHandler(MessageType.STATUS_MESSAGE, HandleStatusUpdateAsync);
-            _messageProcessor.RegisterHandler(MessageType.GET_STATUS, HandleStatusRequestAsync);
-            _messageProcessor.RegisterHandler(MessageType.GET_ASSETS, HandleAssetRequestAsync);
+            _messageProcessor.RegisterHandler(MessageTypes.STATUS_UPDATE, HandleStatusUpdateAsync);
+            _messageProcessor.RegisterHandler(MessageTypes.STATUS_MESSAGE, HandleStatusUpdateAsync);
+            _messageProcessor.RegisterHandler(MessageTypes.GET_STATUS, HandleStatusRequestAsync);
+            _messageProcessor.RegisterHandler(MessageTypes.GET_ASSETS, HandleAssetRequestAsync);
         }
 
         public abstract Task StartAsync(CancellationToken cancellationToken = default);

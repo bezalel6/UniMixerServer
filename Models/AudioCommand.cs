@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace UniMixerServer.Models {
     // New simplified protocol models
     public class StatusUpdate {
-        public MessageType MessageType { get; set; } = MessageType.STATUS_UPDATE;
+        public string MessageType { get; set; } = MessageTypes.STATUS_UPDATE;
         public string RequestId { get; set; } = string.Empty;
         public string DeviceId { get; set; } = string.Empty;
         public long Timestamp { get; set; }  // Milliseconds since epoch
@@ -13,19 +13,19 @@ namespace UniMixerServer.Models {
     }
 
     public class StatusRequest {
-        public MessageType MessageType { get; set; } = MessageType.GET_STATUS;
+        public string MessageType { get; set; } = MessageTypes.GET_STATUS;
         public string RequestId { get; set; } = string.Empty;
         public string DeviceId { get; set; } = string.Empty;
     }
     public class AssetRequest {
-        public MessageType MessageType { get; set; } = MessageType.GET_ASSETS;
+        public string MessageType { get; set; } = MessageTypes.GET_ASSETS;
         public string RequestId { get; set; } = string.Empty;
         public string DeviceId { get; set; } = string.Empty;
         public string ProcessName { get; set; } = string.Empty;
     }
 
     public class SessionUpdate {
-        public MessageType MessageType { get; set; } = MessageType.SESSION_UPDATE;
+        public string MessageType { get; set; } = MessageTypes.SESSION_UPDATE;
         public string ProcessName { get; set; } = string.Empty;
         public float Volume { get; set; }
         public bool IsMuted { get; set; }
@@ -35,7 +35,7 @@ namespace UniMixerServer.Models {
 
 
     public class StatusMessage {
-        public MessageType MessageType { get; set; } = MessageType.STATUS_MESSAGE;
+        public string MessageType { get; set; } = MessageTypes.STATUS_MESSAGE;
         public string DeviceId { get; set; } = Environment.MachineName;
         public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public int ActiveSessionCount { get; set; }
@@ -74,7 +74,7 @@ namespace UniMixerServer.Models {
 
     // Asset and metadata models
     public class AssetResponse {
-        public MessageType MessageType { get; set; } = MessageType.ASSET_RESPONSE;
+        public string MessageType { get; set; } = MessageTypes.ASSET_RESPONSE;
         public string RequestId { get; set; } = string.Empty;
         public string DeviceId { get; set; } = string.Empty;
         public string ProcessName { get; set; } = string.Empty;

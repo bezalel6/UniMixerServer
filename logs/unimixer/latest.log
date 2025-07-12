@@ -1,18 +1,47 @@
-2025-07-12 05:48:33.385 +03:00 [INF] Found ESP32-S3 toolchain at: C:\Espressif\tools\riscv32-esp-elf\esp-14.2.0_20241119
-2025-07-12 05:48:33.460 +03:00 [INF] UniMixer Service starting...
-2025-07-12 05:48:33.462 +03:00 [INF] Starting communication handler: Serial
-2025-07-12 05:48:33.464 +03:00 [INF] Starting Serial handler on port COM17...
-2025-07-12 05:48:33.473 +03:00 [INF] Serial handler started successfully on COM17
-2025-07-12 05:48:33.495 +03:00 [INF] Started timers - Status: 60000ms, Audio Refresh: 30000ms
-2025-07-12 05:48:33.500 +03:00 [INF] UniMixer Service started successfully
-2025-07-12 05:48:33.501 +03:00 [INF] Sending initial status broadcast...
-2025-07-12 05:48:33.509 +03:00 [INF] Application started. Press Ctrl+C to shut down.
-2025-07-12 05:48:33.510 +03:00 [INF] Hosting environment: Production
-2025-07-12 05:48:33.522 +03:00 [INF] Content root path: E:\SharedCo\UniMixerServer
-2025-07-12 05:48:34.917 +03:00 [INF] Broadcasting status for 2 sessions (Reason: ServiceStartup):
-2025-07-12 05:48:34.918 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
-2025-07-12 05:48:34.920 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 100.0 %, Muted: false, State: 1
-2025-07-12 05:49:03.494 +03:00 [INF] Protocol statistics: Messages: Sent=1, Received=1, Bytes: TX=585, RX=104, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=100.00%, Performance: 0.07 msg/s, 22.87 B/s, Uptime: 00:00:30
-2025-07-12 05:49:03.565 +03:00 [INF] Broadcasting status for 2 sessions (Reason: SessionChange):
-2025-07-12 05:49:03.566 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
-2025-07-12 05:49:03.568 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-12 06:20:43.973 +03:00 [INF] Found ESP32-S3 toolchain at: C:\Espressif\tools\riscv32-esp-elf\esp-14.2.0_20241119
+2025-07-12 06:20:44.026 +03:00 [INF] UniMixer Service starting...
+2025-07-12 06:20:44.027 +03:00 [INF] Starting communication handler: Serial
+2025-07-12 06:20:44.028 +03:00 [INF] Starting Serial handler on port COM17...
+2025-07-12 06:20:44.038 +03:00 [INF] Serial handler started successfully on COM17
+2025-07-12 06:20:44.052 +03:00 [INF] Started timers - Status: 60000ms, Audio Refresh: 30000ms
+2025-07-12 06:20:44.054 +03:00 [INF] UniMixer Service started successfully
+2025-07-12 06:20:44.055 +03:00 [INF] Sending initial status broadcast...
+2025-07-12 06:20:44.060 +03:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-07-12 06:20:44.061 +03:00 [INF] Hosting environment: Production
+2025-07-12 06:20:44.062 +03:00 [INF] Content root path: E:\SharedCo\UniMixerServer
+2025-07-12 06:20:44.127 +03:00 [INF] Broadcasting status for 3 sessions (Reason: ServiceStartup):
+2025-07-12 06:20:44.128 +03:00 [INF]   Session: Legcord (PID: 18584) - Volume: 100.0 %, Muted: false, State: 0
+2025-07-12 06:20:44.130 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 85.0 %, Muted: false, State: 0
+2025-07-12 06:20:44.132 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-12 06:21:14.053 +03:00 [INF] Protocol statistics: Messages: Sent=1, Received=0, Bytes: TX=729, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.03 msg/s, 24.22 B/s, Uptime: 00:00:30
+2025-07-12 06:21:14.143 +03:00 [INF] Broadcasting status for 3 sessions (Reason: SessionChange):
+2025-07-12 06:21:14.144 +03:00 [INF]   Session: Legcord (PID: 18584) - Volume: 100.0 %, Muted: false, State: 0
+2025-07-12 06:21:14.146 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 85.0 %, Muted: false, State: 0
+2025-07-12 06:21:14.147 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-12 06:21:44.063 +03:00 [INF] Protocol statistics: Messages: Sent=2, Received=0, Bytes: TX=1457, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.03 msg/s, 24.24 B/s, Uptime: 00:01:00
+2025-07-12 06:21:44.158 +03:00 [INF] Broadcasting status for 3 sessions (Reason: PeriodicUpdate):
+2025-07-12 06:21:44.159 +03:00 [INF]   Session: Legcord (PID: 18584) - Volume: 100.0 %, Muted: false, State: 0
+2025-07-12 06:21:44.161 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 85.0 %, Muted: false, State: 0
+2025-07-12 06:21:44.163 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-12 06:22:14.069 +03:00 [INF] Protocol statistics: Messages: Sent=3, Received=0, Bytes: TX=2186, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.03 msg/s, 24.26 B/s, Uptime: 00:01:30
+2025-07-12 06:22:44.071 +03:00 [INF] Protocol statistics: Messages: Sent=3, Received=0, Bytes: TX=2186, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.02 msg/s, 18.20 B/s, Uptime: 00:02:00
+2025-07-12 06:22:44.100 +03:00 [INF] Broadcasting status for 3 sessions (Reason: PeriodicUpdate):
+2025-07-12 06:22:44.101 +03:00 [INF]   Session: Legcord (PID: 18584) - Volume: 100.0 %, Muted: false, State: 0
+2025-07-12 06:22:44.104 +03:00 [INF]   Session: YouTube Music (PID: 32676) - Volume: 85.0 %, Muted: false, State: 0
+2025-07-12 06:22:44.105 +03:00 [INF]   Session: chrome (PID: 16240) - Volume: 100.0 %, Muted: false, State: 1
+2025-07-12 06:22:50.027 +03:00 [INF] Application is shutting down...
+2025-07-12 06:22:50.030 +03:00 [INF] UniMixer Service stopping...
+2025-07-12 06:22:50.031 +03:00 [INF] Stopping communication handler: Serial
+2025-07-12 06:22:50.034 +03:00 [INF] Stopping Serial handler...
+2025-07-12 06:22:50.037 +03:00 [INF] Final protocol statistics: Messages: Sent=4, Received=0, Bytes: TX=2915, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.03 msg/s, 23.12 B/s, Uptime: 00:02:06
+2025-07-12 06:22:50.038 +03:00 [INF] Serial handler stopped successfully
+2025-07-12 06:22:50.039 +03:00 [INF] Connection status changed for Serial: Disconnected - Disconnected from serial port
+2025-07-12 06:22:50.041 +03:00 [INF] UniMixer Service stopped successfully
+2025-07-12 06:22:50.043 +03:00 [INF] UniMixer Service stopping...
+2025-07-12 06:22:50.044 +03:00 [INF] UniMixer Service stopping...
+2025-07-12 06:22:50.044 +03:00 [INF] Stopping communication handler: Serial
+2025-07-12 06:22:50.045 +03:00 [INF] Stopping Serial handler...
+2025-07-12 06:22:50.046 +03:00 [INF] Final protocol statistics: Messages: Sent=4, Received=0, Bytes: TX=2915, RX=0, Errors: Framing=0, CRC=0, Timeout=0, Overflow=0, Escape=0, Success Rate=0.00%, Performance: 0.03 msg/s, 23.12 B/s, Uptime: 00:02:06
+2025-07-12 06:22:50.047 +03:00 [INF] Serial handler stopped successfully
+2025-07-12 06:22:50.048 +03:00 [INF] Connection status changed for Serial: Disconnected - Disconnected from serial port
+2025-07-12 06:22:50.049 +03:00 [INF] UniMixer Service stopped successfully

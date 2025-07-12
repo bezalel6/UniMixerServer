@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using UniMixerServer.Models;
 using UniMixerServer.Services;
 
 namespace UniMixerServer.Communication.MessageProcessing {
@@ -11,16 +10,16 @@ namespace UniMixerServer.Communication.MessageProcessing {
     /// </summary>
     public class JsonMessageProcessor : IMessageProcessor {
         private readonly ILogger<JsonMessageProcessor> _logger;
-        private readonly Dictionary<MessageType, MessageHandler> _handlers;
+        private readonly Dictionary<string, MessageHandler> _handlers;
 
         public JsonMessageProcessor(ILogger<JsonMessageProcessor> logger) {
             _logger = logger;
-            _handlers = new Dictionary<MessageType, MessageHandler>();
+            _handlers = new Dictionary<string, MessageHandler>();
         }
 
-        public void RegisterHandler(MessageType messageType, MessageHandler handler) {
-            if (messageType == MessageType.INVALID) {
-                throw new ArgumentException("Cannot register handler for INVALID message type", nameof(messageType));
+        public void RegisterHandler(string messageType, MessageHandler handler) {
+            if (string.IsNullOrEmpty(messageType)) {
+                throw new ArgumentException("Cannot register handler for empty message type", nameof(messageType));
             }
             if (handler == null) {
                 throw new ArgumentNullException(nameof(handler));

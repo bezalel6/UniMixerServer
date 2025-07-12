@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using UniMixerServer.Models;
-using System.Collections.Generic;
 
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
@@ -22,7 +22,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
         public static async Task<bool> ParseAndDispatchAsync(
             string jsonMessage, 
             string sourceInfo, 
-            Dictionary<MessageType, MessageHandler> handlers, 
+            Dictionary<string, MessageHandler> handlers, 
             ILogger logger) {
             
             if (string.IsNullOrWhiteSpace(jsonMessage)) {
@@ -36,7 +36,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
 
                 // Step 2: Extract and validate message type
                 var messageType = ExtractMessageType(root, sourceInfo, logger);
-                if (messageType == MessageType.INVALID) {
+                if (string.IsNullOrEmpty(messageType)) {
                     return false;
                 }
 
@@ -68,35 +68,49 @@ namespace UniMixerServer.Communication.MessageProcessing {
         }
 
         /// <summary>
-        /// Extract MessageType from JSON element with support for both string and numeric types
+        /// Extract message type string from JSON element
         /// </summary>
-        private static MessageType ExtractMessageType(JsonElement root, string sourceInfo, ILogger logger) {
+        private static string ExtractMessageType(JsonElement root, string sourceInfo, ILogger logger) {
             if (!root.TryGetProperty("messageType", out var messageTypeElement)) {
                 logger.LogDebug("No messageType property in JSON from {Source}", sourceInfo);
-                return MessageType.INVALID;
+                return string.Empty;
             }
 
-            // Handle string messageType (legacy support)
+            // Handle string messageType
             if (messageTypeElement.ValueKind == JsonValueKind.String) {
-                if (Enum.TryParse<MessageType>(messageTypeElement.GetString(), true, out var stringMessageType)) {
-                    return stringMessageType;
+                var messageType = messageTypeElement.GetString();
+                if (!string.IsNullOrEmpty(messageType)) {
+                    return messageType;
                 }
-                logger.LogDebug("Invalid messageType string '{Value}' from {Source}", messageTypeElement.GetString(), sourceInfo);
-                return MessageType.INVALID;
+                logger.LogDebug("Empty messageType string from {Source}", sourceInfo);
+                return string.Empty;
             }
 
-            // Handle numeric messageType (preferred)
+            // Handle numeric messageType (legacy support)
             if (messageTypeElement.ValueKind == JsonValueKind.Number) {
                 var messageTypeValue = messageTypeElement.GetInt32();
-                if (Enum.IsDefined(typeof(MessageType), messageTypeValue)) {
-                    return (MessageType)messageTypeValue;
+                // Convert legacy numeric types to strings
+                var messageType = messageTypeValue switch {
+                    1 => MessageTypes.STATUS_UPDATE,
+                    2 => MessageTypes.STATUS_MESSAGE, 
+                    3 => MessageTypes.GET_STATUS,
+                    4 => MessageTypes.GET_ASSETS,
+                    5 => MessageTypes.ASSET_RESPONSE,
+                    6 => MessageTypes.SESSION_UPDATE,   
+                    _ => string.Empty
+                };
+                
+                if (!string.IsNullOrEmpty(messageType)) {
+                    logger.LogDebug("Converted legacy numeric messageType {Value} to {MessageType} from {Source}", 
+                        messageTypeValue, messageType, sourceInfo);
+                    return messageType;
                 }
                 logger.LogDebug("Invalid messageType number {Value} from {Source}", messageTypeValue, sourceInfo);
-                return MessageType.INVALID;
+                return string.Empty;
             }
 
             logger.LogDebug("Invalid messageType property type from {Source}", sourceInfo);
-            return MessageType.INVALID;
+            return string.Empty;
         }
     }
 }

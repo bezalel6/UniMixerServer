@@ -2,21 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
-using UniMixerServer.Models;
 
 namespace UniMixerServer.Communication.MessageProcessing {
     /// <summary>
     /// Base interface for parsed messages that contain a message type
     /// </summary>
     public interface IParsedMessage {
-        MessageType MessageType { get; }
+        string MessageType { get; }
     }
 
     /// <summary>
     /// Generic parsed message that holds the raw JSON data
     /// </summary>
     public class ParsedMessage : IParsedMessage {
-        public MessageType MessageType { get; set; } = MessageType.INVALID;
+        public string MessageType { get; set; } = string.Empty;
         public JsonElement Data { get; set; }
         public string SourceInfo { get; set; } = string.Empty;
     }
@@ -37,7 +36,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
         /// </summary>
         /// <param name="messageType">The message type to handle</param>
         /// <param name="handler">The handler function</param>
-        void RegisterHandler(MessageType messageType, MessageHandler handler);
+        void RegisterHandler(string messageType, MessageHandler handler);
 
         /// <summary>
         /// Processes raw data through bus-specific parsing and message dispatch

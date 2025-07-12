@@ -1,263 +1,58 @@
-=== NEW SESSION STARTED: 2025-07-12 05:48:33.474 - Serial Port COM17 ===[652316][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 120 bytes
-[652317][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 7E 3C 02 00 00 25 89 01 7B 22 6D 65 73 73 61 67 65 54 79 70 65 22 3A 32 2C 22 64 65 76 69 63 65 
-[652329][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[652338][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 120 bytes through binary framer
-[652349][D][BinaryProtocol.cpp:329] processIncomingBytes(): [BinaryProtocol] Found start marker, reading header
-[652359][D][BinaryProtocol.cpp:416] processHeader(): [BinaryProtocol] Header: Length=572, CRC=0x8925, Type=0x01
-[652369][D][BinaryProtocol.cpp:340] processIncomingBytes(): [BinaryProtocol] Header processed, reading payload of 572 bytes
-[652380][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 0 messages
-[652404][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 256 bytes
-[652405][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 49 64 22 3A 31 36 32 34 30 2C 22 70 72 6F 63 65 73 73 4E 61 6D 65 22 3A 22 63 68 72 6F 6D 65 22 
-[652416][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[652426][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 256 bytes through binary framer
-[652437][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 0 messages
-[652461][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 209 bytes
-[652461][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 65 22 3A 7B 22 66 72 69 65 6E 64 6C 79 4E 61 6D 65 22 3A 22 53 70 65 61 6B 65 72 73 20 28 53 74 
-[652473][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[652483][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 209 bytes through binary framer
-[652494][D][BinaryProtocol.cpp:577] processCompleteMessage(): [BinaryProtocol] Successfully decoded message: 572 bytes, CRC OK
-[652505][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 1 messages
-[652515][I][SimplifiedSerialEngine.h:333] processIncomingData(): [SerialEngine] === RECEIVED RAW JSON ===
-[652524][I][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":2,"deviceId":"THINKINATOR","timestamp":1752288514929,"activeSessionCount":2,"sessions":[{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":1
-[652559][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[VOLUME_CHANGE] DeviceId: THINKINATOR RequestId:  Timestamp: 652559 VolumeChange: ProcessName='' Volume=0 Target='default' 
-[654470][D][TaskManager.cpp:794] audioTask(): [TaskManager] [AUDIO_TASK] Heartbeat: 650 (failures: 0, emergency: NO)
-[660657][I][TaskManager.cpp:809] printTaskStats(): [TaskManager] [STATS] === Dynamic Task Configuration ===
-[660658][I][TaskManager.cpp:812] printTaskStats(): [TaskManager] [STATS] System State: 0, OTA State: 0, Emergency Mode: NO
-[660667][I][TaskManager.cpp:815] printTaskStats(): [TaskManager] [STATS] Message Load: 0 msg/s, Last State Change: 656443 ms ago
-[660678][I][TaskManager.cpp:817] printTaskStats(): [TaskManager] [STATS] LVGL Task: Core 0, Priority 24, Stack 8192 bytes
-[660689][I][TaskManager.cpp:819] printTaskStats(): [TaskManager] [STATS] Audio Task: Core 0, Priority 23, Stack 6144 bytes
-[660699][I][TaskManager.cpp:820] printTaskStats(): [TaskManager] [STATS] Core 1: InterruptMessagingEngine (dedicated)
-[660710][I][TaskManager.cpp:821] printTaskStats(): [TaskManager] [STATS] =========================
-[660718][I][AppController.cpp:200] run(): [AppController] LVGL Task Stack High Water Mark: 1924 bytes
-[660727][I][AppController.cpp:202] run(): [AppController] Audio Task Stack High Water Mark: 6212 bytes
-ESP-ROM:esp32s3-20210327
-Build:Mar 27 2021
-rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
-SPIWP:0xee
-mode:DIO, clock div:1
-load:0x3fce3808,len:0x44c
-load:0x403c9700,len:0xbd8
-load:0x403cc700,len:0x2a80
-entry 0x403c98d0
-[   358][I][esp32-hal-psram.c:96] psramInit(): PSRAM enabled
-[   374][I][main.cpp:31] setup(): === STARTING UNIMIXER CLIENT ===
-[   374][I][main.cpp:32] setup(): Starting full UniMixer Client application
-[   375][I][AppController.cpp:29] init(): [AppController] ==========================================
-[   384][I][AppController.cpp:30] init(): [AppController] AppController::init() called!
-[   392][I][AppController.cpp:31] init(): [AppController] ==========================================
-[   400][I][AppController.cpp:32] init(): [AppController] Initializing Application Controller (Multi-threaded ESP32-S3)
-[   411][I][AppController.cpp:33] init(): [AppController] Build Info: Version: 1.0.0-2240b42 | Built: Jul 12 2025 05:36:01 | Compiler: 8.4.0
-[   423][E][AppController.cpp:34] init(): [AppController] [DEBUG] AppController init started - using ERROR level for visibility
-[   434][I][AppController.cpp:37] init(): [AppController] Initializing startup watchdog timer...
-[   443][I][AppController.cpp:43] init(): [AppController] WDT Reset: Initializing Device Manager...
-[  2451][I][DeviceManager.cpp:17] init(): [DeviceManager] DeviceManager initialized - Serial/UART handled by MessagingEngine
-[  2452][I][DeviceManager.cpp:34] printSystemInfo(): Board: ${this.board}
-[  2458][I][DeviceManager.cpp:37] printSystemInfo(): CPU: ESP32-S3 rev0, CPU Freq: 240 Mhz, 2 core(s)
-[  2467][I][DeviceManager.cpp:38] printSystemInfo(): Free heap: 359924 bytes
-[  2473][I][DeviceManager.cpp:39] printSystemInfo(): Free PSRAM: 8386295 bytes
-[  2480][I][DeviceManager.cpp:40] printSystemInfo(): SDK version: v4.4.6-dirty
-[  2487][I][DeviceManager.cpp:41] printSystemInfo(): Firmware: 1.0.0 | Built: Jul 12 2025 05:20:17
-[  2496][I][AppController.cpp:49] init(): [AppController] WDT Reset: Initializing SD Manager...
-[  2504][I][SDManager.cpp:28] init(): [SDManager] Initializing SD manager for ESP32-8048S070C
-[  2513][W][SDManager.cpp:972] initializeSPI(): [SDManager] SPI initialized but unexpected SD response: 0xF0
-[  2522][I][SDManager.cpp:136] mount(): [SDManager] Attempting to mount SD card
-[  2529][I][SDManager.cpp:148] mount(): [SDManager] Mount attempt 1/3
-[  2543][I][SDManager.cpp:151] mount(): [SDManager] SD card mounted successfully
-[  2543][I][SDManager.cpp:785] printCardInfo(): [SDManager] === SD Card Information ===
-[  2550][I][SDManager.cpp:786] printCardInfo(): [SDManager] Status: Mounted
-[  2557][I][SDManager.cpp:787] printCardInfo(): [SDManager] Card Type: SDHC
-[  2564][I][SDManager.cpp:788] printCardInfo(): [SDManager] Card Size: 32001.00 MB
-[  2571][I][SDManager.cpp:789] printCardInfo(): [SDManager] Total Space: 31984.00 MB
-[  2578][I][SDManager.cpp:790] printCardInfo(): [SDManager] Used Space: 0.22 MB
-[  2585][I][SDManager.cpp:791] printCardInfo(): [SDManager] Free Space: 31983.78 MB
-[  2593][I][SDManager.cpp:792] printCardInfo(): [SDManager] ===========================
-[  2601][I][SDManager.cpp:60] init(): [SDManager] SD manager initialized successfully with card mounted
-[  2610][I][AppController.cpp:49] init(): [AppController] SD Manager initialized successfully
-[  2618][I][AppController.cpp:54] init(): [AppController] WDT Reset: Initializing Logo Manager...
-[  2626][I][LogoManager.cpp:22] init(): [LogoManager] Initializing LogoManager with organized directory structure
-[  2653][D][LogoStorage.cpp:417] ensureDirectoryStructure(): [LogoStorage] Directory structure verified
-[  2653][I][LogoManager.cpp:41] init(): [LogoManager] LogoManager initialized successfully
-[  2659][I][AppController.cpp:54] init(): [AppController] Logo Manager initialized successfully
-[  2667][I][AppController.cpp:56] init(): [AppController] WDT Reset: Initializing Display Manager...
-[  2676][I][DisplayManager.cpp:41] init(): [DisplayManager] Initializing Display Manager (ESP32-S3 Optimized)
-[  2686][I][DisplayManager.cpp:47] init(): [DisplayManager] PSRAM: Total 8388607 bytes, Free 8359327 bytes
-[  2695][I][DisplayManager.cpp:394] configure_spi_bus(): [DisplayManager] Setting SPI bus frequency to 80MHz for performance
-[  2706][E][esp32-hal-gpio.c:102] __pinMode(): Invalid pin selected
-[  2712][E][esp32-hal-gpio.c:102] __pinMode(): Invalid pin selected
-[  2718][I][DisplayManager.cpp:53] init(): [DisplayManager] Flushing caches for ESP32-S3 PSRAM stability
-[  2727][D][esp32_smartdisplay.c:159] smartdisplay_init(): smartdisplay_init
-[  2739][D][lvgl_panel_st7262_par.c:104] lvgl_lcd_init(): rgb_panel_config: clk_src:0, timings:{pclk_hz:12500000, h_res:800, v_res:480, hsync_pulse_width:30, hsync_back_porch:16, hsync_front_porch:210, vsync_pulse_width:13, vsync_back_porch:10, vsync_front_porch:22, flags:{hsync_idle_low:1, vsync_idle_low:1, de_idle_high:0, pclk_active_neg:1, pclk_idle_high:0}}, data_width:16, sram_trans_align:4, psram_trans_align:64, hsync_gpio_num:39, vsync_gpio_num:40, de_gpio_num:41, pclk_gpio_num:42, data_gpio_nums:[15,7,6,5,4,9,46,3,8,16,1,14,21,47,48,45,], disp_gpio_num:-1, on_frame_trans_done:0x42075f1c, user_ctx:0x3d8082dc, flags:{disp_active_low:0, relax_on_idle:0, fb_in_psram:1}
-[  2793][D][lvgl_panel_st7262_par.c:105] lvgl_lcd_init(): refresh rate: 0 Hz
-[  2823][D][lvgl_touch_gt911_i2c.c:46] lvgl_touch_init(): i2c_config: mode:1, sda_io_num:19, scl_io_num:20, sda_pullup_en:0, scl_pullup_en:0, master:{clk_speed:400000}, clk_flags:0
-[  2828][D][lvgl_touch_gt911_i2c.c:61] lvgl_touch_init(): io_i2c_config: dev_addr:0x5d, control_phase_bytes:1, user_ctx:0x3d809308, dc_bit_offset:0, lcd_cmd_bits:16, lcd_param_bits:0, flags:{.dc_low_on_data:0, disable_control_phase:1}
-[  2848][D][lvgl_touch_gt911_i2c.c:76] lvgl_touch_init(): touch_config: x_max:800, y_max:480, rst_gpio_num:38, int_gpio_num:18, levels:{reset:0, interrupt:0}, flags:{swap_xy:0, mirror_x:0, mirror_y:0}, user_data:0x3fcf3388
-[  2919][D][esp_touch_gt911.c:153] gt911_read_info(): GT911 productId: 911
-[  2919][D][esp_touch_gt911.c:154] gt911_read_info(): GT911 fwId: 0x1060
-[  2921][D][esp_touch_gt911.c:155] gt911_read_info(): GT911 xResolution/yResolution: (800,480)
-[  2929][D][esp_touch_gt911.c:156] gt911_read_info(): GT911 vendorId: 0x00
-[  2936][D][esp_touch_gt911.c:463] esp_lcd_touch_new_i2c_gt911(): handle:0x3db7e34c
-[  2943][I][DisplayManager.cpp:59] init(): [DisplayManager] Allowing display hardware settling time...
-[  3130][I][DisplayManager.cpp:69] init(): [DisplayManager] Allowing UI initialization settling time...
-[  3180][I][DisplayManager.cpp:79] init(): [DisplayManager] Display resolution: 800x480
-[  3181][I][DisplayManager.cpp:80] init(): [DisplayManager] Display initialized successfully
-[  3185][I][DisplayManager.cpp:85] init(): [DisplayManager] LVGL memory configured for ESP32-S3 stability (corruption prevention)
-[  3197][I][DisplayManager.cpp:91] init(): [DisplayManager] Performing final display readiness verification...
-[  3406][I][DisplayManager.cpp:110] init(): [DisplayManager] Display Manager initialized successfully with corruption prevention
-[  3407][I][AppController.cpp:68] init(): [AppController] WDT Reset: Checking SD filesystem...
-[  3415][I][AppController.cpp:68] init(): [AppController] Initializing LVGL SD filesystem...
-[  3423][I][SDManager.cpp:806] initLVGLFilesystem(): [SDManager] Initializing LVGL SD filesystem driver
-[  3432][I][LVGLSDFilesystem.cpp:256] init(): [LVGLSDFilesystem] Initializing LVGL SD filesystem driver
-[  3441][I][LVGLSDFilesystem.cpp:296] init(): [LVGLSDFilesystem] LVGL SD filesystem driver registered successfully with drive letter 'S:'
-[  3453][I][SDManager.cpp:821] initLVGLFilesystem(): [SDManager] LVGL SD filesystem driver initialized successfully
-[  3464][I][AppController.cpp:68] init(): [AppController] LVGL SD filesystem initialized successfully
-[  3472][I][AppController.cpp:70] init(): [AppController] WDT Reset: Initializing Message System...
-[  3481][I][MessagingInit.cpp:12] initMessaging(): [MessagingInit] === BRUTAL MESSAGING INIT START ===
-[  3490][I][MessagingInit.cpp:13] initMessaging(): [MessagingInit] Current free heap: 345380
-[  3498][I][MessagingInit.cpp:14] initMessaging(): [MessagingInit] Current stack watermark: 5556
-[  3507][I][MessagingInit.cpp:17] initMessaging(): [MessagingInit] Creating SerialEngine instance...
-[  3516][I][SimplifiedSerialEngine.h:85] getInstance(): [SerialEngine] Creating new SerialEngine instance
-[  3525][D][BinaryProtocol.cpp:96] BinaryProtocolFramer(): [BinaryProtocol] BinaryProtocolFramer initialized
-[  3535][I][SimplifiedSerialEngine.h:87] getInstance(): [SerialEngine] SerialEngine instance created at 0x3db7e3bc
-[  3545][I][MessagingInit.cpp:20] initMessaging(): [MessagingInit] Calling SerialEngine init...
-[  3553][I][SimplifiedSerialEngine.h:94] init(): [SerialEngine] Initializing Simplif��[  3572][I][SimplifiedSerialEngine.h:118] init(): [SerialEngine] Arduino Serial initialized successfully
-[  3672][I][SimplifiedSerialEngine.h:134] init(): [SerialEngine] Serial engine initialized (task creation delayed)
-[  3673][I][MessagingInit.cpp:25] initMessaging(): [MessagingInit] Messaging system initialized - no abstractions, just serial
-[  3683][I][MessagingInit.cpp:26] initMessaging(): [MessagingInit] Free heap after init: 343808
-[  3691][I][MessagingInit.cpp:29] initMessaging(): [MessagingInit] Starting receive task after delay...
-[  3800][I][SimplifiedSerialEngine.h:148] startReceiveTask(): [SerialEngine] Starting receive task on Core 1
-[  3801][I][SimplifiedSerialEngine.h:262] rxTask(): [SerialEngine] === RX TASK STARTED ON CORE 1 ===
-[  3808][I][SimplifiedSerialEngine.h:165] startReceiveTask(): [SerialEngine] Receive task started successfully
-[  3817][I][MessagingInit.cpp:40] initMessaging(): [MessagingInit] === BRUTAL MESSAGING INIT END ===
-[  3826][I][AppController.cpp:82] init(): [AppController] WDT Reset: Configuring Network-Free Architecture...
-[  3836][I][AppController.cpp:82] init(): [AppController] [NETWORK-FREE] Network-free architecture enabled
-[  3845][I][AppController.cpp:82] init(): [AppController] [NETWORK-FREE] Network will be activated only during OTA operations
-[  3856][I][AppController.cpp:100] init(): [AppController] WDT Reset: Configuring Message Transport...
-[  3865][I][AppController.cpp:100] init(): [AppController] Initializing Core 1 Interrupt Messaging Engine
-[  3875][I][AppController.cpp:100] init(): [AppController] Using BRUTAL messaging system - no abstractions
-[  3884][I][AppController.cpp:102] init(): [AppController] WDT Reset: Message handlers will be registered by components...
-[  3895][I][AppController.cpp:117] init(): [AppController] WDT Reset: Initializing MessageBusLogoSupplier...
-[  3904][I][MessageBusLogoSupplier.cpp:34] init(): [MBLogoSupplier] Initializing MessageBusLogoSupplier
-[  3914][I][MessageBusLogoSupplier.cpp:67] init(): [MBLogoSupplier] MessageBusLogoSupplier initialized successfully
-[  3924][I][AppController.cpp:117] init(): [AppController] MessageBusLogoSupplier initialized successfully
-[  3933][I][AppController.cpp:122] init(): [AppController] WDT Reset: Initializing Audio System...
-[  3942][I][AudioManager.cpp:23] init(): [AudioManager] Initializing AudioManager
-[  3949][I][AudioManager.cpp:80] init(): [AudioManager] AudioManager initialized successfully
-[  3957][I][AudioUI.cpp:24] init(): [AudioUI] Initializing AudioUI
-[  3963][I][AudioUI.cpp:33] init(): [AudioUI] AudioUI initialized successfully
-[  3970][I][AppController.cpp:124] init(): [AppController] WDT Reset: Setting up UI components...
-[  3979][I][DisplayManager.cpp:179] setRotation(): [DisplayManager] Display rotation set to: 0
-[  3987][D][AppController.cpp:216] setupUiComponents(): [AppController] Settings button click handler registered
-[  3997][D][AppController.cpp:218] setupUiComponents(): [AppController] Send Status Request click handler registered
-[  4007][D][AppController.cpp:221] setupUiComponents(): [AppController] Audio dropdown value change handlers registered (3 widgets)
-[  4019][I][AppController.cpp:221] setupUiComponents(): [AppController] All audio dropdowns configured
-[  4028][D][AppController.cpp:224] setupUiComponents(): [AppController] ui_primaryVolumeSlider volume handlers registered
-[  4038][D][AppController.cpp:224] setupUiComponents(): [AppController] ui_singleVolumeSlider volume handlers registered
-[  4049][D][AppController.cpp:224] setupUiComponents(): [AppController] ui_balanceVolumeSlider volume handlers registered
-[  4060][I][AppController.cpp:224] setupUiComponents(): [AppController] All volume sliders configured
-[  4068][I][AppController.cpp:227] setupUiComponents(): [AppController] Registering tab events on ui_tabsModeSwitch: 0x3d80948c
-[  4080][I][AppController.cpp:227] setupUiComponents(): [AppController] Found 3 tab buttons in ui_tabsModeSwitch
-[  4090][I][AppController.cpp:227] setupUiComponents(): [AppController] Tab events configured for 3 buttons
-[  4099][I][AudioManager.cpp:436] setCurrentTab(): [AudioManager] Changed tab to: 0
-[  4106][I][AppController.cpp:233] setupUiComponents(): [AppController] Initialized tab state to index: 0 (Master)
-[  4116][I][AppController.cpp:243] setupUiComponents(): [AppController] FileExplorer removed - no navigation setup needed
-[  4127][I][AppController.cpp:130] init(): [AppController] WDT Reset: Applying emergency UI performance optimizations...
-[  4138][I][AppController.cpp:130] init(): [AppController] Emergency performance optimizations applied - expect 80-900x3fc97e58rocessing time reduction
-[  4151][I][AppController.cpp:133] init(): [AppController] WDT Reset: Starting Task Manager...
-[  4159][I][TaskManager.cpp:239] init(): [TaskManager] [INIT] Starting Network-Free Task Manager for ESP32-S3 dual-core
-[  4170][I][TaskManager.cpp:170] initializeSharedComponents(): [TaskManager] [SHARED-INIT] Initializing shared components for network-free mode
-[  4182][I][TaskManager.cpp:175] initializeSharedComponents(): [TaskManager] [INIT] Creating task configuration mutex...
-[  4193][I][TaskManager.cpp:175] initializeSharedComponents(): [TaskManager] [INIT] task configuration mutex created successfully
-[  4204][I][TaskManager.cpp:176] initializeSharedComponents(): [TaskManager] [INIT] Creating LVGL mutex...
-[  4214][I][TaskManager.cpp:176] initializeSharedComponents(): [TaskManager] [INIT] LVGL mutex created successfully
-[  4224][I][TaskManager.cpp:189] initializeSharedComponents(): [TaskManager] [SHARED-INIT] Initializing LVGL Message Handler...
-[  4235][I][LVGLMessageHandler.cpp:743] init(): [LVGLMessageHandler] Initializing LVGL Message Handler
-[  4244][I][LVGLMessageHandler.cpp:758] init(): [LVGLMessageHandler] Verifying LVGL timer system readiness...
-[  4353][I][LVGLMessageHandler.cpp:771] init(): [LVGLMessageHandler] Creating LVGL message processing timer...
-[  4354][I][LVGLMessageHandler.cpp:779] init(): [LVGLMessageHandler] LVGL message timer created successfully
-[  4362][I][LVGLMessageHandler.cpp:781] init(): [LVGLMessageHandler] LVGL Message Handler initialized successfully
-[  4372][I][TaskManager.cpp:196] initializeSharedComponents(): [TaskManager] [SHARED-INIT] LVGL Message Handler initialized successfully
-[  4384][I][TaskManager.cpp:200] initializeSharedComponents(): [TaskManager] [SHARED-INIT] Shared components initialization completed successfully
-[  4397][I][TaskManager.cpp:218] createEssentialTasks(): [TaskManager] [ESSENTIAL-TASKS] Creating essential tasks (network-free mode)
-[  4408][I][TaskManager.cpp:222] createEssentialTasks(): [TaskManager] [INIT] Creating LVGL_Task on Core 0 with priority 24...
-[  4419][I][TaskManager.cpp:222] createEssentialTasks(): [TaskManager] [INIT] LVGL_Task created successfully
-[  4419][I][TaskManager.cpp:402] lvglTask(): [TaskManager] [LVGL_TASK] LVGL Task started on Core 0
-[  4429][I][TaskManager.cpp:229] createEssentialTasks(): [TaskManager] [INIT] Creating Audio_Task on Core 0 with priority 24...
-[  4438][I][TaskManager.cpp:405] lvglTask(): [TaskManager] [LVGL_TASK] Waiting for display hardware stabilization...
-[  4450][I][TaskManager.cpp:643] audioTask(): [TaskManager] [AUDIO_TASK] Audio Task started on Core 0 with improved priority management
-[  4449][I][TaskManager.cpp:229] createEssentialTasks(): [TaskManager] [INIT] Audio_Task created successfully
-[  4481][I][TaskManager.cpp:231] createEssentialTasks(): [TaskManager] [ESSENTIAL-TASKS] Essential tasks created successfully
-[  4492][I][TaskManager.cpp:232] createEssentialTasks(): [TaskManager] [NETWORK-FREE] Core 1 dedicated to InterruptMessagingEngine
-[  4503][I][TaskManager.cpp:205] printInitializationSummary(): [TaskManager] [INIT] SUCCESS: Network-free task system initialized
-[  4514][I][TaskManager.cpp:206] printInitializationSummary(): [TaskManager] [INIT] Core 0: LVGL + Audio (maximum performance)
-[  4525][I][TaskManager.cpp:208] printInitializationSummary(): [TaskManager] [INIT] Core 1: InterruptMessagingEngine (dedicated messaging)
-[  4538][I][TaskManager.cpp:209] printInitializationSummary(): [TaskManager] [INIT] Network tasks: Only in OTA boot mode
-[  4548][I][TaskManager.cpp:212] printInitializationSummary(): [TaskManager] [INIT] Network-Free Task Manager initialization completed successfully
-[  4560][I][TaskManager.cpp:410] lvglTask(): [TaskManager] [LVGL_TASK] LVGL SD filesystem will be managed by SDManager
-[  4561][I][AppController.cpp:138] init(): [AppController] AppController initialization complete
-[  4572][I][TaskManager.cpp:412] lvglTask(): [TaskManager] [LVGL_TASK] Starting event-driven LVGL operations loop
-[  4580][I][AppController.cpp:144] init(): [AppController] WDT Reset: Sending initial status request...
-[  4599][I][SimplifiedSerialEngine.h:178] send(): [SerialEngine] === SENDING MESSAGE FROM CORE 1 ===
-[  4608][W][SimplifiedSerialEngine.h:182] send(): [SerialEngine] WARNING: Send called from Core 1 (receive task) - potential stack issue!
-[  4620][I][SimplifiedSerialEngine.h:185] send(): [SerialEngine] Type: 6
-[  4654][I][SimplifiedSerialEngine.h:186] send(): [SerialEngine] Device ID: ESP32S3-CONTROL-CENTER
-[  4660][I][SimplifiedSerialEngine.h:187] send(): [SerialEngine] Request ID: esp32_4599
-[  4665][I][SimplifiedSerialEngine.h:188] send(): [SerialEngine] Timestamp: 4599
-[  4676][I][SimplifiedSerialEngine.h:189] send(): [SerialEngine] Converting to JSON...
-[  4680][I][SimplifiedSerialEngine.h:193] send(): [SerialEngine] JSON Length: 95
-[  4687][I][SimplifiedSerialEngine.h:194] send(): [SerialEngine] JSON: {"messageType":6,"deviceId":"ESP32S3-CONTROL-CENTER","requestId":"esp32_4599","timestamp":4599}
-[  4701][I][SimplifiedSerialEngine.h:195] send(): [SerialEngine] ========================
-[  4709][I][SimplifiedSerialEngine.h:206] sendRaw(): [SerialEngine] === SENDING RAW DATA ===
-[  4717][I][SimplifiedSerialEngine.h:207] sendRaw(): [SerialEngine] Raw data: {"messageType":6,"deviceId":"ESP32S3-CONTROL-CENTER","requestId":"esp32_4599","timestamp":4599}
-[  4720][W][TaskManager.cpp:565] lvglTask(): [TaskManager] [LVGL_TASK] STARTUP: Long processing time 130ms (>100ms)
-[  4732][D][BinaryProtocol.cpp:181] encodeMessage(): [BinaryProtocol] Encoded message: 95 bytes payload -> 105 bytes frame (CRC: 0x9A8B)
-[  4755][I][SimplifiedSerialEngine.h:214] sendRaw(): [SerialEngine] Binary frame size: 105 bytes
-[  4763][I][SimplifiedSerialEngine.h:222] sendRaw(): [SerialEngine] Binary frame (first 32 bytes): 7e 5f 0 0 0 8b 9a 1 7b 22 6d 65 73 73 61 67 65 54 79 70 65 22 3a 36 2c 22 64 65 76 69 63 65 
-~_   ��{"messageType":6,"deviceId":"ESP32S3-CONTROL-CENTER","requestId":"esp32_4599","timestamp":4599}][  4800][I][SimplifiedSerialEngine.h:232] sendRaw(): [SerialEngine] Successfully sent 105 bytes
-[  4800][I][AudioManager.cpp:521] publishStatusRequest(): [AudioManager] Published status request
-[  4806][I][AppController.cpp:146] init(): [AppController] Application Controller initialized successfully (Multi-threaded ESP32-S3)
-[  4818][I][AppController.cpp:151] init(): [AppController] WDT Reset: Updating build time display...
-[  4827][I][AppController.cpp:154] init(): [AppController] De-initializing startup watchdog timer.
-[  4835][I][main.cpp:39] setup(): ESP32-S3 UniMixer Client initialized successfully
-[  4843][I][main.cpp:40] setup(): Architecture: Network-free with dedicated messaging core
-[  4851][I][main.cpp:41] setup(): Core 0: UI/LVGL/Audio (high priority)
-[  4857][I][main.cpp:42] setup(): Core 1: Messaging engine (interrupt-driven)
-[  4864][I][main.cpp:45] setup(): Free heap: 316416 bytes
-[  4869][I][main.cpp:46] setup(): Free PSRAM: 4667999 bytes
-[  4874][I][main.cpp:47] setup(): PSRAM size: 8386103 bytes
-[  4911][I][TaskManager.cpp:570] lvglTask(): [TaskManager] [LVGL_TASK] STARTUP: Heavy processing 84ms (expected during UI init)
-[ 11986][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 120 bytes
-[ 11987][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 7E 38 02 00 00 64 E4 01 7B 22 6D 65 73 73 61 67 65 54 79 70 65 22 3A 32 2C 22 64 65 76 69 63 65 
-[ 11999][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[ 12009][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 120 bytes through binary framer
-[ 12019][D][BinaryProtocol.cpp:329] processIncomingBytes(): [BinaryProtocol] Found start marker, reading header
-[ 12029][D][BinaryProtocol.cpp:416] processHeader(): [BinaryProtocol] Header: Length=568, CRC=0xE464, Type=0x01
-[ 12039][D][BinaryProtocol.cpp:340] processIncomingBytes(): [BinaryProtocol] Header processed, reading payload of 568 bytes
-[ 12050][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 0 messages
-[ 12073][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 256 bytes
-[ 12074][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 49 64 22 3A 31 36 32 34 30 2C 22 70 72 6F 63 65 73 73 4E 61 6D 65 22 3A 22 63 68 72 6F 6D 65 22 
-[ 12086][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[ 12096][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 256 bytes through binary framer
-[ 12107][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 0 messages
-[ 12130][I][SimplifiedSerialEngine.h:272] rxTask(): [SerialEngine] Received 205 bytes
-[ 12130][I][SimplifiedSerialEngine.h:279] rxTask(): [SerialEngine] First 32 bytes: 65 22 3A 7B 22 66 72 69 65 6E 64 6C 79 4E 61 6D 65 22 3A 22 53 70 65 61 6B 65 72 73 20 28 53 74 
-[ 12142][I][SimplifiedSerialEngine.h:321] processIncomingData(): [SerialEngine] === PROCESSING INCOMING DATA ===
-[ 12152][I][SimplifiedSerialEngine.h:323] processIncomingData(): [SerialEngine] Processing 205 bytes through binary framer
-[ 12163][D][BinaryProtocol.cpp:577] processCompleteMessage(): [BinaryProtocol] Successfully decoded message: 568 bytes, CRC OK
-[ 12174][I][SimplifiedSerialEngine.h:329] processIncomingData(): [SerialEngine] Binary framer returned 1 messages
-[ 12184][I][SimplifiedSerialEngine.h:333] processIncomingData(): [SerialEngine] === RECEIVED RAW JSON ===
-[ 12193][I][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":2,"deviceId":"THINKINATOR","timestamp":1752288543573,"activeSessionCount":2,"sessions":[{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":1
-[ 12228][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[VOLUME_CHANGE] DeviceId: THINKINATOR RequestId:  Timestamp: 12228 VolumeChange: ProcessName='' Volume=0 Target='default' 
-[ 14595][I][TaskManager.cpp:433] lvglTask(): [TaskManager] [LVGL_TASK] Exiting startup phase - switching to normal operation
-[ 30470][D][TaskManager.cpp:714] audioTask(): [TaskManager] [AUDIO_TASK] Force UI update after 30s
-[ 30470][D][AudioUI.cpp:205] refreshAllUI(): [AudioUI] Refreshing all UI elements
-[ 30475][D][AudioUI.cpp:250] updateDeviceSelectors(): [AudioUI] Updated device selectors with 0 devices
-[ 30484][D][AudioData.h:208] getCurrentSelectedVolume(): [Audio Data] No device selected for volume control
-[ 30492][E][TaskManager.cpp:347] lvglTryLock(): [TaskManager] [MUTEX] WARNING: Failed to acquire LVGL mutex within 15 ms
-[ 30494][D][AudioUI.cpp:227] updateVolumeDisplay(): [AudioUI] Set Master tab slider to volume: 0
-[ 30505][D][TaskManager.cpp:547] lvglTask(): [TaskManager] [LVGL_TASK] Skipped update - mutex timeout
-[ 30513][D][AudioUI.cpp:237] updateVolumeDisplay(): [AudioUI] Updated Master tab volume display to: 0
-[ 30522][W][TaskManager.cpp:581] lvglTask(): [TaskManager] [LVGL_TASK] LVGL processing took 45ms (>25ms)
-[ 30531][D][AudioUI.cpp:275] updateMuteButtons(): [AudioUI] Updated mute buttons
-[ 30547][D][AudioUI.cpp:401] updateTabVisibility(): [AudioUI] Updated tab visibility
-[ 30561][D][UiEventHandlers.cpp:171] volumeArcVisualHandler(): [UIEventHandlers] Volume arc visual update: 0
-[ 30598][W][TaskManager.cpp:581] lvglTask(): [TaskManager] [LVGL_TASK] LVGL processing took 38ms (>25ms)
+=== NEW SESSION STARTED: 2025-07-12 06:20:44.040 - Serial Port COM17 ===[ 26224][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290444145,"activeSessionCount":3,"[ 26224][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290444145,"activeSessionCount":3,"sessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":falssessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRe,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"ServiceStartup","originatingRequestId":null,"originatingDeviceId":null}
+[ 26285][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed messagole":"Console"},"reason":"ServiceStartup","originatingRequestId":null,"originatingDeviceId":null}
+[ 26285][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 26284
+  Invalid/Unknown message type
+
+e Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 26284
+  Invalid/Unknown message type
+
+[ 30236][W][TaskManager.cpp:581] lvglTask(): [TaskManager] [LVGL_TASK] LVGL processing took 26ms (>25ms)
+[ 30236][W][TaskManager.cpp:581] lvglTask(): [TaskManager] [LVGL_TASK] LVGL processing took 26ms (>25ms)
+[ 56185][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":175229[ 56185][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290474154,"activeSessionCount":3,"sessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"proce0474154,"activeSessionCount":3,"sessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayNassName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRme":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"SessionChange","originatingRequestId":null,"originatingDeviceId":null}
+[ 56245][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed messageole":"Console"},"reason":"SessionChange","originatingRequestId":null,"originatingDeviceId":null}
+[ 56245][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 56244
+  Invalid/Unknown message type
+
+ Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 56244
+  Invalid/Unknown message type
+
+[ 86204][W][SimplifiedSerialEngi[ 86204][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290504169,"activeSessionCount":3,"sessions":[{"processId":18584,"pne.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290504169,"activeSessionCount":3,"sessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayrocessName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActiName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"Periodve"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"PeriodicUpdate","originatingRequestId":null,"originatingDeviceId":null}
+[ 86265][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  DeviicUpdate","originatingRequestId":null,"originatingDeviceId":null}
+[ 86265][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 86264
+  Invalid/Unknown message type
+
+ceId: THINKINATOR
+  RequestId: 
+  Timestamp: 86264
+  Invalid/Unknown message type
+
+[146185][W][SimplifiedSerialEngine.h:334] processIncomingData():[146185][W][SimplifiedSerialEngine.h:334] processIncomingData(): [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290564150,"activeSessionCount":3,"sessions":[{"processId":18584,"p [SerialEngine] JSON: {"messageType":"StatusMessage","deviceId":"THINKINATOR","timestamp":1752290564150,"activeSessionCount":3,"sessions":[{"processId":18584,"processName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted"rocessName":"Legcord","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":32676,"processName":"YouTube Music","displayName":"","volume":0.85,"isMuted":false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendly:false,"state":"AudioSessionStateInactive"},{"processId":16240,"processName":"chrome","displayName":"","volume":1,"isMuted":false,"state":"AudioSessionStateActive"}],"defaultDevice":{"friendlyName":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"PeriodicUpdate","originatingRequestId"Name":"Headphones (WH-1000XM5)","volume":0.59842545,"isMuted":false,"dataFlow":"Render","deviceRole":"Console"},"reason":"PeriodicUpdate","originatingRequestId":null,"originatingDeviceId":null}
+[146245][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  Devi:null,"originatingDeviceId":null}
+[146245][W][SimplifiedSerialEngine.h:345] processIncomingData(): [SerialEngine] Parsed message Message[StatusMessage]
+  DeviceId: THINKINATOR
+  RequestId: 
+  Timestamp: 146245
+  Invalid/Unknown message type
+
+ceId: THINKINATOR
+  RequestId: 
+  Timestamp: 146245
+  Invalid/Unknown message type
+

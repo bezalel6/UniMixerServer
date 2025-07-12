@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using UniMixerServer.Communication.BinaryProtocol;
-using UniMixerServer.Models;
 using UniMixerServer.Services;
 
 namespace UniMixerServer.Communication.MessageProcessing {
@@ -13,20 +12,20 @@ namespace UniMixerServer.Communication.MessageProcessing {
     /// </summary>
     public class BinaryMessageProcessor : IMessageProcessor {
         private readonly ILogger<BinaryMessageProcessor> _logger;
-        private readonly Dictionary<MessageType, MessageHandler> _handlers;
+        private readonly Dictionary<string, MessageHandler> _handlers;
         private readonly BinaryProtocolFramer _framer;
         private readonly ProtocolStatistics _statistics;
 
         public BinaryMessageProcessor(ILogger<BinaryMessageProcessor> logger) {
             _logger = logger;
-            _handlers = new Dictionary<MessageType, MessageHandler>();
+            _handlers = new Dictionary<string, MessageHandler>();
             _statistics = new ProtocolStatistics();
             _framer = new BinaryProtocolFramer(_logger, _statistics);
         }
 
-        public void RegisterHandler(MessageType messageType, MessageHandler handler) {
-            if (messageType == MessageType.INVALID) {
-                throw new ArgumentException("Cannot register handler for INVALID message type", nameof(messageType));
+        public void RegisterHandler(string messageType, MessageHandler handler) {
+            if (string.IsNullOrEmpty(messageType)) {
+                throw new ArgumentException("Cannot register handler for empty message type", nameof(messageType));
             }
             if (handler == null) {
                 throw new ArgumentNullException(nameof(handler));
@@ -37,55 +36,35 @@ namespace UniMixerServer.Communication.MessageProcessing {
         }
 
         public async Task ProcessAsync(string rawData, string sourceInfo) {
-            // Binary processor should only be called with binary data via ProcessBinaryAsync
-            // This method exists only to satisfy the interface
-            _logger.LogWarning("BinaryMessageProcessor.ProcessAsync called with string data - this should use ProcessBinaryAsync instead");
-            
-            // Convert string to bytes as fallback (assuming Latin1 encoding preserves byte values)
-            var binaryData = System.Text.Encoding.Latin1.GetBytes(rawData);
-            await ProcessBinaryAsync(binaryData, sourceInfo);
+            if (string.IsNullOrWhiteSpace(rawData)) {
+                return;
+            }
+
+            // Log incoming data
+            IncomingDataLogger.LogIncomingData(rawData, sourceInfo);
+
+            // Use shared parser to handle all JSON parsing logic (eliminates duplication)
+            await JsonMessageParser.ParseAndDispatchAsync(rawData, sourceInfo, _handlers, _logger);
         }
 
-        /// <summary>
-        /// Process binary data: decode frames, then parse JSON using shared utility
-        /// Clean binary protocol processing only - no exception detection
-        /// </summary>
         public async Task ProcessBinaryAsync(byte[] binaryData, string sourceInfo) {
             if (binaryData == null || binaryData.Length == 0) {
                 return;
             }
 
-            _logger.LogTrace("🔍 Processing {Length} bytes from {Source}", binaryData.Length, sourceInfo);
+            // Log binary data for debugging
+            BinaryDataLogger.LogBinaryData(binaryData, sourceInfo);
 
-            try {
-                // Decode binary frames to JSON messages
-                var decodedMessages = _framer.ProcessIncomingBytes(binaryData);
-                
-                _logger.LogDebug("Decoded {Count} messages from {Length} bytes via binary protocol", 
-                    decodedMessages.Count, binaryData.Length);
+            // Decode binary frames
+            var messages = _framer.ProcessIncomingBytes(binaryData);
+            foreach (var message in messages) {
+                if (!string.IsNullOrEmpty(message)) {
+                    // Log decoded message
+                    IncomingDataLogger.LogIncomingData(message, sourceInfo);
 
-                // Process each JSON message using shared parser
-                foreach (var jsonMessage in decodedMessages) {
-                    // Log the decoded message
-                    IncomingDataLogger.LogIncomingData(jsonMessage, sourceInfo);
-                    
-                    // Use shared parser to handle JSON parsing and dispatch
-                    await JsonMessageParser.ParseAndDispatchAsync(jsonMessage, sourceInfo, _handlers, _logger);
+                    // Use shared parser to handle JSON parsing
+                    await JsonMessageParser.ParseAndDispatchAsync(message, sourceInfo, _handlers, _logger);
                 }
-
-                // Check for protocol-level issues that might indicate instability
-                if (_statistics.CrcErrors > 0 || _statistics.FramingErrors > 0 || _statistics.TimeoutErrors > 0) {
-                    var errorRate = (double)(_statistics.CrcErrors + _statistics.FramingErrors + _statistics.TimeoutErrors) / 
-                                   Math.Max(1, _statistics.MessagesReceived + _statistics.CrcErrors + _statistics.FramingErrors);
-                    
-                    if (errorRate > 0.5) { // More than 50% error rate
-                        _logger.LogWarning("High binary protocol error rate ({ErrorRate:P}) detected from {Source} - possible instability", 
-                            errorRate, sourceInfo);
-                    }
-                }
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error processing binary data from {Source}: {Length} bytes", sourceInfo, binaryData.Length);
             }
         }
 
@@ -102,15 +81,7 @@ namespace UniMixerServer.Communication.MessageProcessing {
             }
         }
 
-        /// <summary>
-        /// Get current protocol statistics for monitoring
-        /// </summary>
         public ProtocolStatistics Statistics => _statistics;
-
-        /// <summary>
-        /// Get current framer state for debugging
-        /// </summary>
-        public ReceiveState CurrentState => _framer.CurrentState;
 
         public void Dispose() {
             // No resources to dispose
