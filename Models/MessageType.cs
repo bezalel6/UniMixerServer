@@ -7,43 +7,43 @@ namespace UniMixerServer.Models {
         /// <summary>
         /// Invalid or unknown message type
         /// </summary>
-        INVALID = -1,
+        INVALID = 0,
 
         /// <summary>
         /// Status update message containing session information
         /// Maps to: "StatusUpdate"
         /// </summary>
-        STATUS_UPDATE = 0,
+        STATUS_UPDATE = 1,
 
         /// <summary>
         /// Status broadcast message
         /// Maps to: "StatusMessage" 
         /// </summary>
-        STATUS_MESSAGE = 1,
+        STATUS_MESSAGE = 2,
 
         /// <summary>
         /// Request for device status
         /// Maps to: "GetStatus"
         /// </summary>
-        GET_STATUS = 2,
+        GET_STATUS = 3,
 
         /// <summary>
         /// Request for asset data (e.g., process icons)
         /// Maps to: "GetAssets"
         /// </summary>
-        GET_ASSETS = 3,
+        GET_ASSETS = 4,
 
         /// <summary>
         /// Response containing asset data
         /// Maps to: "AssetResponse"
         /// </summary>
-        ASSET_RESPONSE = 4,
+        ASSET_RESPONSE = 5,
 
         /// <summary>
         /// Individual session update (used within StatusUpdate)
         /// Maps to: "SessionUpdate"
         /// </summary>
-        SESSION_UPDATE = 5
+        SESSION_UPDATE = 6
     }
 
     /// <summary>

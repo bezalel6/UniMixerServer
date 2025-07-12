@@ -169,9 +169,11 @@ namespace UniMixerServer.Communication {
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
                     var binaryFrame = _binaryMessageProcessor.EncodeMessage(json);
-                    var asciiDebug = Encoding.ASCII.GetString(binaryFrame);
-
-                    OutgoingDataLogger.LogOutgoingData(asciiDebug, "Serial");
+                    // For debugging/logging, show the JSON that was encoded
+                    OutgoingDataLogger.LogOutgoingData(json, "Serial");
+                    // Log the binary frame as hex string
+                    var hexString = BitConverter.ToString(binaryFrame).Replace("-", " ");
+                    OutgoingDataLogger.LogOutgoingData("Binary frame (hex): {HexString}", hexString);
                     await Task.Run(() => _serialPort!.Write(binaryFrame, 0, binaryFrame.Length), cancellationToken);
                 }
                 else {
@@ -229,6 +231,7 @@ namespace UniMixerServer.Communication {
                 if (_useBinaryProtocol && _binaryMessageProcessor != null) {
                     // Send as binary frame
                     var binaryFrame = _binaryMessageProcessor.EncodeMessage(json);
+
                     await Task.Run(() => _serialPort!.Write(binaryFrame, 0, binaryFrame.Length), cancellationToken);
                 }
                 else {
