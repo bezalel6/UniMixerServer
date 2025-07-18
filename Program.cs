@@ -41,6 +41,12 @@ namespace UniMixerServer {
                 return;
             }
 
+            // Check if we should test ping functionality
+            if (args.Length > 0 && args[0].Equals("--test-ping", StringComparison.OrdinalIgnoreCase)) {
+                await TestPing.RunPingTest();
+                return;
+            }
+
 
 
             // Load .env file for credentials
@@ -110,6 +116,9 @@ namespace UniMixerServer {
 
                     // Register ESP exception decoder
                     services.AddSingleton<EspExceptionDecoder>();
+
+                    // Register ping service
+                    services.AddSingleton<PingService>();
 
                     // Register message processors for O(1) lookup (simplified, no centralized logging service)
                     services.AddSingleton<JsonMessageProcessor>();
@@ -279,7 +288,7 @@ namespace UniMixerServer {
                     builder.AddConsole()
                            .SetMinimumLevel(LogLevel.Information));
 
-                // Create services
+                // Create services`
                 Console.WriteLine("Creating services...");
                 var iconExtractorLogger = loggerFactory.CreateLogger<ProcessIconExtractor>();
                 var iconExtractor = new ProcessIconExtractor(iconExtractorLogger);
@@ -430,6 +439,7 @@ namespace UniMixerServer {
 
             // First, dispose any existing loggers to flush pending writes and release file handles
             Console.WriteLine("Disposing existing loggers...");
+            
             IncomingDataLogger.Dispose();
             OutgoingDataLogger.Dispose();
             BinaryDataLogger.Dispose();

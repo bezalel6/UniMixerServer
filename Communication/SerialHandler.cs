@@ -209,7 +209,8 @@ namespace UniMixerServer.Communication {
                     assetResponse.RequestId,
                     assetResponse.DeviceId,
                     assetResponse.ProcessName,
-                    assetResponse.Metadata,
+                    // omit unused metadata
+                    // assetResponse.Metadata,
                     AssetData = assetResponse.AssetData != null ? Convert.ToBase64String(assetResponse.AssetData) : null,
                     assetResponse.Success,
                     assetResponse.ErrorMessage
@@ -242,6 +243,42 @@ namespace UniMixerServer.Communication {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error sending asset response via serial port");
+            }
+        }
+
+        public override async Task SendPingResponseAsync(string pongJson, CancellationToken cancellationToken = default) {
+            if (!IsConnected) {
+                _logger.LogWarning("Cannot send ping response - serial port not connected");
+                return;
+            }
+
+            // Don't send messages if crash detection is active
+            if (_exceptionDecoder.IsCrashDetectionActive) {
+                _logger.LogDebug("Crash detection is active, not sending ping response");
+                return;
+            }
+
+            try {
+                _logger.LogDebug("Sending ping response: {Length} chars", pongJson.Length);
+
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(pongJson, "Serial");
+
+                if (_useBinaryProtocol && _binaryMessageProcessor != null) {
+                    // Send as binary frame
+                    var binaryFrame = _binaryMessageProcessor.EncodeMessage(pongJson);
+                    await Task.Run(() => _serialPort!.Write(binaryFrame, 0, binaryFrame.Length), cancellationToken);
+                }
+                else {
+                    // Send as text with newline
+                    var message = $"{pongJson}\n";
+                    await Task.Run(() => _serialPort!.Write(message), cancellationToken);
+                }
+
+                _logger.LogDebug("Ping response sent via serial port");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error sending ping response via serial port");
             }
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UniMixerServer.Models;
+using UniMixerServer.Communication.MessageProcessing;
 
 namespace UniMixerServer.Communication {
     public interface ICommunicationHandler {
@@ -46,6 +47,14 @@ namespace UniMixerServer.Communication {
         Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Sends a ping response through this communication channel
+        /// </summary>
+        /// <param name="pongJson">Ping response JSON to send</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the send operation</returns>
+        Task SendPingResponseAsync(string pongJson, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Event fired when a status update is received
         /// </summary>
         event EventHandler<StatusUpdateReceivedEventArgs>? StatusUpdateReceived;
@@ -64,6 +73,11 @@ namespace UniMixerServer.Communication {
         /// Event fired when a set volume request is received
         /// </summary>
         event EventHandler<SetVolumeRequestReceivedEventArgs>? SetVolumeRequestReceived;
+
+        /// <summary>
+        /// Event fired when a ping request is received
+        /// </summary>
+        event EventHandler<PingRequestReceivedEventArgs>? PingRequestReceived;
 
         /// <summary>
         /// Event fired when connection status changes
@@ -91,6 +105,12 @@ namespace UniMixerServer.Communication {
 
     public class SetVolumeRequestReceivedEventArgs : EventArgs {
         public SetVolumeRequest SetVolumeRequest { get; set; } = new SetVolumeRequest();
+        public string Source { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    public class PingRequestReceivedEventArgs : EventArgs {
+        public ParsedMessage Message { get; set; } = null!;
         public string Source { get; set; } = string.Empty;
         public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }

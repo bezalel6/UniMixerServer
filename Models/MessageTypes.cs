@@ -21,7 +21,7 @@ namespace UniMixerServer.Models {
         /// <summary>
         /// Request for asset data (e.g., process icons)
         /// </summary>
-        public const string GET_ASSETS = "GET_ASSETS";
+        public const string GET_ASSETS = "ASSET_REQUEST";
 
         /// <summary>
         /// Response containing asset data
@@ -37,5 +37,15 @@ namespace UniMixerServer.Models {
         /// Command to set volume for a process or default device
         /// </summary>
         public const string SET_VOLUME = "SET_VOLUME";
+
+        /// <summary>
+        /// Ping request from client to measure latency and sync time
+        /// </summary>
+        public const string PING_REQUEST = "PING_REQUEST";
+
+        /// <summary>
+        /// Pong response from server with Unix timestamp
+        /// </summary>
+        public const string PONG_RESPONSE = "PONG_RESPONSE";
     }
 } 

@@ -444,6 +444,9 @@ namespace UniMixerServer.Services {
             try {
                 // Resize image to desired format size
                 using (var resizedImage = ResizeImage(image, _logoFormat.Width, _logoFormat.Height)) {
+                    // Create debugging artifact of the final processed image
+                    await CreateProcessedImageDebugArtifactAsync(resizedImage, format);
+                    
                     if (format.ToLowerInvariant() == "png") {
                         return ConvertToPng(resizedImage);
                     }
@@ -647,6 +650,31 @@ namespace UniMixerServer.Services {
             }
         }
 
+        private async Task CreateProcessedImageDebugArtifactAsync(Image processedImage, string format) {
+            try {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var debugId = Guid.NewGuid().ToString("N")[..6];
+                var debugDirectory = Path.Combine(_assetsDirectory, "debug", "processed_images");
+                Directory.CreateDirectory(debugDirectory);
+
+                var artifactFile = Path.Combine(debugDirectory, $"processed_{timestamp}_{debugId}_{format}.png");
+
+                _logger.LogInformation($"Creating processed image debug artifact:");
+                _logger.LogInformation($"  Artifact file: {artifactFile}");
+                _logger.LogInformation($"  Image dimensions: {processedImage.Width}x{processedImage.Height}");
+                _logger.LogInformation($"  Target format: {format}");
+
+                // Save the processed image as PNG for debugging
+                using (var bitmap = new Bitmap(processedImage)) {
+                    bitmap.Save(artifactFile, ImageFormat.Png);
+                    _logger.LogInformation($"Successfully saved processed image artifact: {artifactFile} (size: {new FileInfo(artifactFile).Length} bytes)");
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Failed to create processed image debug artifact - continuing with processing");
+            }
+        }
+
 
 
         private (string colorFormat, string outputType, string binaryFormat) GetLvglConverterParameters(string format) {
@@ -720,6 +748,9 @@ namespace UniMixerServer.Services {
                 return memoryStream.ToArray();
             }
         }
+
+
+
 
         private Image ResizeImage(Image image, int width, int height) {
             if (image == null) {

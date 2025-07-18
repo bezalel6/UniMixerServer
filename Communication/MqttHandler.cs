@@ -161,6 +161,34 @@ namespace UniMixerServer.Communication {
             }
         }
 
+        public override async Task SendPingResponseAsync(string pongJson, CancellationToken cancellationToken = default) {
+            if (_mqttClient == null || !IsConnected) {
+                _logger.LogWarning("Cannot send ping response - MQTT client not connected");
+                return;
+            }
+
+            try {
+                _logger.LogDebug("Sending ping response: {Length} chars", pongJson.Length);
+
+                // Use status topic for ping responses (could be configured in config later)
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic(_config.Topics.StatusTopic)
+                    .WithPayload(pongJson)
+                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
+                    .WithRetainFlag(false)
+                    .Build();
+
+                // Log outgoing data
+                OutgoingDataLogger.LogOutgoingData(pongJson, $"MQTT:{_config.Topics.StatusTopic}");
+
+                await _mqttClient.EnqueueAsync(message);
+                _logger.LogDebug("Ping response sent to MQTT topic: {Topic}", _config.Topics.StatusTopic);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error sending ping response via MQTT");
+            }
+        }
+
         private async Task OnConnectedAsync(MqttClientConnectedEventArgs args) {
             _logger.LogInformation("MQTT client connected to broker {Host}:{Port}", _config.BrokerHost, _config.BrokerPort);
 

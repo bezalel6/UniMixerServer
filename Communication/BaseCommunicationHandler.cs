@@ -22,6 +22,7 @@ namespace UniMixerServer.Communication {
         public event EventHandler<StatusRequestReceivedEventArgs>? StatusRequestReceived;
         public event EventHandler<AssetRequestReceivedEventArgs>? AssetRequestReceived;
         public event EventHandler<SetVolumeRequestReceivedEventArgs>? SetVolumeRequestReceived;
+        public event EventHandler<PingRequestReceivedEventArgs>? PingRequestReceived;
         public event EventHandler<ConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
         protected BaseCommunicationHandler(ILogger logger, IMessageProcessor messageProcessor) {
@@ -38,12 +39,14 @@ namespace UniMixerServer.Communication {
             _messageProcessor.RegisterHandler(MessageTypes.GET_STATUS, HandleStatusRequestAsync);
             _messageProcessor.RegisterHandler(MessageTypes.GET_ASSETS, HandleAssetRequestAsync);
             _messageProcessor.RegisterHandler(MessageTypes.SET_VOLUME, HandleSetVolumeRequestAsync);
+            _messageProcessor.RegisterHandler(MessageTypes.PING_REQUEST, HandlePingRequestAsync);
         }
 
         public abstract Task StartAsync(CancellationToken cancellationToken = default);
         public abstract Task StopAsync(CancellationToken cancellationToken = default);
         public abstract Task SendStatusAsync(StatusMessage status, CancellationToken cancellationToken = default);
         public abstract Task SendAssetAsync(AssetResponse assetResponse, CancellationToken cancellationToken = default);
+        public abstract Task SendPingResponseAsync(string pongJson, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Processes incoming raw data using the message processor
@@ -170,6 +173,24 @@ namespace UniMixerServer.Communication {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "❌ Error handling set volume request from {Source}", message.SourceInfo);
+            }
+
+            await Task.CompletedTask;
+        }
+
+        private async Task HandlePingRequestAsync(ParsedMessage message) {
+            try {
+                _logger.LogDebug("🏓 PING REQUEST received from {Source}", message.SourceInfo);
+
+                // Trigger ping request event
+                PingRequestReceived?.Invoke(this, new PingRequestReceivedEventArgs {
+                    Message = message,
+                    Source = message.SourceInfo,
+                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                });
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "❌ Error handling ping request from {Source}", message.SourceInfo);
             }
 
             await Task.CompletedTask;

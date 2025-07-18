@@ -20,6 +20,7 @@ namespace UniMixerServer.Services {
         private readonly IAudioManager _audioManager;
         private readonly StatusUpdateProcessor _statusUpdateProcessor;
         private readonly IAssetService _assetService;
+        private readonly PingService _pingService;
         private readonly List<ICommunicationHandler> _communicationHandlers;
         private Timer? _statusTimer;
         private Timer? _audioRefreshTimer;
@@ -31,12 +32,14 @@ namespace UniMixerServer.Services {
             IAudioManager audioManager,
             StatusUpdateProcessor statusUpdateProcessor,
             IAssetService assetService,
+            PingService pingService,
             IEnumerable<ICommunicationHandler> communicationHandlers) {
             _logger = logger;
             _config = config.Value;
             _audioManager = audioManager;
             _statusUpdateProcessor = statusUpdateProcessor;
             _assetService = assetService;
+            _pingService = pingService;
             _communicationHandlers = communicationHandlers.ToList();
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
@@ -135,6 +138,7 @@ namespace UniMixerServer.Services {
                 handler.StatusRequestReceived += OnStatusRequestReceived;
                 handler.AssetRequestReceived += OnAssetRequestReceived;
                 handler.SetVolumeRequestReceived += OnSetVolumeRequestReceived;
+                handler.PingRequestReceived += OnPingRequestReceived;
                 handler.ConnectionStatusChanged += OnConnectionStatusChanged;
             }
 
@@ -473,6 +477,26 @@ namespace UniMixerServer.Services {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing set volume request");
+            }
+        }
+
+        private async void OnPingRequestReceived(object? sender, PingRequestReceivedEventArgs e) {
+            try {
+                _logger.LogInformation("Processing ping request from {Source}", e.Source);
+
+                // Use the ping service to handle the request and send response
+                await _pingService.HandlePingRequestAsync(e.Message, async (pongJson) => {
+                    if (sender is ICommunicationHandler handler) {
+                        await handler.SendPingResponseAsync(pongJson);
+                        _logger.LogInformation("Ping response sent to {Source}", e.Source);
+                    }
+                    else {
+                        _logger.LogWarning("Invalid sender type for ping request");
+                    }
+                });
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing ping request");
             }
         }
     }
